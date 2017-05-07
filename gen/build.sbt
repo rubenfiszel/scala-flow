@@ -1,5 +1,8 @@
-name := "spatial-fusion"
+name := "gen"
 
-organization := "stanford-ppl"
+libraryDependencies += "org.scalanlp"  %% "breeze" % "0.13.1"
+libraryDependencies += "org.typelevel" %% "spire"  % "0.14.1"
 
-version := "0.1"
+resolvers += "jzy3d-snapshots" at "http://maven.jzy3d.org/releases"
+
+libraryDependencies += "org.jzy3d" % "jzy3d-api"  % "1.0.0"
