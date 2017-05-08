@@ -4,7 +4,8 @@ import scala.collection.GenSeq
 import spire.math._
 import spire.implicits._
 import breeze.linalg.{max => _, min => _, _ => _}
-//import breeze.math._
+import io.circe.generic.JsonCodec
+
 //Author: Ruben Fiszel <ruben.fiszel@epfl.ch>
 //Inspired from RapidTrajectory from Mark W. Mueller <mwm@mwm.im>
 
@@ -125,12 +126,18 @@ case class SingleAxisTrajectory(init: SingleAxisInit,
 
 }
 
+@JsonCodec
 case class Vec3(x: Real, y: Real, z: Real)
-    extends DenseVector[Real](Array(x, y, z))
+    extends DenseVector[Real](Array(x, y, z)) with Data {
+  def toValues = toArray.toSeq
+}
 
 object Vec3 {
   def zero = Vec3(0, 0, 0)
   def one  = Vec3(1, 1, 1)
+
+  def apply(gs: GenSeq[Real]): Vec3 =
+    Vec3(gs(0), gs(1), gs(2))
 }
 
 case class Init(p: Vec3, v: Vec3, a: Vec3) {
@@ -141,17 +148,19 @@ object Init {
   def zero = Init(Vec3.zero, Vec3.zero, Vec3.zero)
 }
 
+@JsonCodec
 case class Keypoint(p: Option[Vec3], v: Option[Vec3], a: Option[Vec3]) {
   def apply(i: Int) = SingleAxisGoal(p.map(_(i)), v.map(_(i)), a.map(_(i)))
 }
 
 object Keypoint {
+  def apply(p: Vec3): Keypoint = Keypoint(Some(p), None, None)
   def one = Keypoint(Some(Vec3.one), Some(Vec3.one), Some(Vec3.one))
 }
 
 sealed trait Feasibility
-case object ThrustHigh     extends Feasibility
-case object ThrustLow      extends Feasibility
+case object ThrustTooHigh     extends Feasibility
+case object ThrustTooLow      extends Feasibility
 case object Indeterminable extends Feasibility
 case object Feasible       extends Feasibility
 
@@ -161,43 +170,41 @@ case class TrajectorySection(init: Init = Init.zero,
                              g: Vec3 = Vec3(0, 0, 9.81)) {
   lazy val axis = (0 to 2).map(i => SingleAxisTrajectory(init(i), goal(i), tf))
 
-  def toVec(is: GenSeq[Real]): Vec3 =
-    Vec3(is(0), is(1), is(2))
-
   // Return the trajectory's 3D jerk value at time `t`.
   def getJerk(t: Time) =
-    toVec(axis.map(_.getJerk(t)))
+    Vec3(axis.map(_.getJerk(t)))
 
   def getAcceleration(t: Time) =
-    toVec(axis.map(_.getAcceleration(t)))
+    Vec3(axis.map(_.getAcceleration(t)))
 
   def getVelocity(t: Time) =
-    toVec(axis.map(_.getVelocity(t)))
+    Vec3(axis.map(_.getVelocity(t)))
 
   def getPosition(t: Time) =
-    toVec(axis.map(_.getPosition(t)))
+    Vec3(axis.map(_.getPosition(t)))
 
   def getNormalVector(t: Time) =
-    toVec(normalize(getAcceleration(t) - g).toArray)
+    Vec3(normalize(getAcceleration(t) - g).toArray)
 
   def getThrust(t: Time): Thrust =
     norm((getAcceleration(t) - g))
 
   def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 = {
-    val n0 = DenseVector(getNormalVector(t).toArray)
-    val n1 = DenseVector(getNormalVector(t + dt).toArray)
+    val n0 = Vec3(getNormalVector(t).toArray)
+    val n1 = Vec3(getNormalVector(t + dt).toArray)
 
     //direction of omega, in inertial axes
     val crossProd = cross(n0, n1)
     if (norm(crossProd) > 1e-6) {
-      val sc = n0.dot(n1) / dt
-      toVec((normalize(crossProd) :* 2.0).map(acos(_)).toArray)
+      val sc = acos(n0.dot(n1)) / dt
+      Vec3((normalize(crossProd) :* sc).toArray)
     } else
       Vec3(0, 0, 0)
   }
 
   lazy val cost =
     axis.map(_.cost).sum
+
 
   def isFeasible(fminAllowed: Thrust = 5.0,
                  fmaxAllowed: Thrust = 20.0,
@@ -208,9 +215,9 @@ case class TrajectorySection(init: Init = Init.zero,
       if ((t2 - t1) < minTimeSection)
         Indeterminable
       else if (max(getThrust(t1), getThrust(t2)) > fmaxAllowed)
-        ThrustHigh
+        ThrustTooHigh
       else if (min(getThrust(t1), getThrust(t2)) < fminAllowed)
-        ThrustLow
+        ThrustTooLow
       else {
         var fminSqr = 0.0
         var fmaxSqr = 0.0
@@ -223,7 +230,7 @@ case class TrajectorySection(init: Init = Init.zero,
             val v2           = amax - g
 
             if (max(v1 ** 2, v2 ** 2) > fmaxAllowed ** 2)
-              return ThrustHigh
+              return ThrustTooHigh
 
             if (v1 * v2 < 0) {
               //sign of acceleration changes, so we've gone through zero
@@ -241,9 +248,9 @@ case class TrajectorySection(init: Init = Init.zero,
         val fmax = sqrt(fmaxSqr)
 
         if (fmax < fminAllowed)
-          return ThrustLow
+          return ThrustTooLow
         if (fmin > fmaxAllowed)
-          return ThrustHigh
+          return ThrustTooHigh
 
         val wBound =
           if (fminSqr > 1e-6)
@@ -271,6 +278,7 @@ case class TrajectorySection(init: Init = Init.zero,
 
 }
 
+@JsonCodec
 case class TrajectoryPoint(p: Vec3,
                            v: Vec3,
                            a: Vec3,
@@ -295,73 +303,93 @@ case class Trajectory(init: Init,
       }
     }
   }
+
   lazy val tf =
     keypoints.map(_._2).sum
-  
+
   def getSection(t: Time) = {
-    var t      = 0.0
+    var nt      = t
     var kps    = keypoints
     var offset = 0
-    while (!kps.isEmpty && t > kps.head._2) {
+    while (!kps.isEmpty && nt > kps.head._2) {
       kps = kps.tail
-      t -= kps.head._2
+      nt -= kps.head._2
       offset += 1
     }
-    (combined(offset), t)
+    (combined(offset), nt)
   }
 
   def get[A](f: (TrajectorySection, Time) => A, t: Time): A = {
     val (s, rt) = getSection(t)
-    f(s, t)
+    f(s, rt)
   }
 
-  def getPosition(t: Time): Vec3 =
+  def getPosition(t: Time): Position =
     get(_.getPosition(_), t)
 
-  def getVelocity(t: Time): Vec3 =
+  def getVelocity(t: Time): Velocity =
     get(_.getVelocity(_), t)
 
-  def getAcceleration(t: Time): Vec3 =
+  def getAcceleration(t: Time): Acceleration =
     get(_.getAcceleration(_), t)
 
-  def getJerk(t: Time): Vec3 =
+  def getJerk(t: Time): Jerk =
     get(_.getJerk(_), t)
 
-  def getNormalVector(t: Time): Vec3 =
+  def getNormalVector(t: Time): NormalVector =
     get(_.getNormalVector(_), t)
 
   def getThrust(t: Time): Thrust =
     get(_.getThrust(_), t)
 
-  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 =
+  def getBodyRates(t: Time, dt: Timestep = 1e-3): BodyRates =
     get(_.getBodyRates(_, dt), t)
 
-  def getPoint(t: Time): TrajectoryPoint =
+  def getPoint(t: Time, dt: Timestep = 1e-3): TrajectoryPoint =
     TrajectoryPoint(getPosition(t),
                     getVelocity(t),
                     getAcceleration(t),
                     getJerk(t),
                     getNormalVector(t),
                     getThrust(t),
-                    getBodyRates(t))
+                    getBodyRates(t, dt))
 
   lazy val cost =
     combined.map(_.cost).sum
 
+  def isFeasible: Boolean = isFeasible()
+
   def isFeasible(fminAllowed: Thrust = 5.0,
                  fmaxAllowed: Thrust = 20.0,
                  wmaxAllowed: Omega = 20.0,
-                 minTimeSection: Timeframe = 0.02) = {
+                 minTimeSection: Timeframe = 0.02): Boolean = {
     combined.forall(
       _.isFeasible(fminAllowed, fmaxAllowed, wmaxAllowed) == Feasible)
   }
 
+  def findInfeasible() =
+    combined.map(s => (s, s.isFeasible())).find(_._2 != Feasible)
+
+  def warn() =
+    if (!isFeasible) {
+      val (s, e) = findInfeasible().get
+      println(s"Infeasible on section $s because $e")
+    }
+      
+
 }
 
 object Trajectory {
+  val EARTH_GRAVITY = Vec3(0, 0, 9.81)
   def apply(init: Init = Init.zero,
             goal: Goal = Keypoint.one,
             tf: Timeframe = 1.0,
-            g: Vec3 = Vec3(0, 0, 9.81)): Trajectory =
+            g: Vec3 = EARTH_GRAVITY): Trajectory =
     Trajectory(init, List((goal, tf)), g)
+
+  def apply(init: Init,
+            keypoints: List[Keypoint],
+            tfs: List[Timeframe]): Trajectory =
+    Trajectory(init, keypoints.zip(tfs), EARTH_GRAVITY)
+
 }

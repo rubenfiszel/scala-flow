@@ -1,5 +1,7 @@
 package spatial.fusion.gen
 
+import breeze.linalg._
+
 abstract class Sensor[+A] {
 
   //1% variance in time
@@ -11,8 +13,25 @@ abstract class Sensor[+A] {
                dt: Timestep,
                tf: Timeframe,
                seed: Seed): Stream[Timestamped[A]] =
-    genTimes(dt, tf, timeVariance, seed + sensID).map(generatePoint(traj, _, seed + sensID))
+    genTimes(dt, tf, timeVariance, seed + sensID)
+      .map(t => {
+        val nSeed = seed + sensID + t.hashCode
+        generateDataWithTime(traj, t, nSeed)
+      })
 
-  def generatePoint(traj: Trajectory, t: Time, seed: Seed): Timestamped[A]
+  def generateDataWithTime(traj: Trajectory,
+                            t: Time,
+                            seed: Seed): Timestamped[A] =
+    Timestamped(t, generateData(traj, t, seed))
+
+  def generateData(traj: Trajectory, t: Time, seed: Seed): A
+
+}
+
+case class Accelerometer(cov: DenseMatrix[Real]) extends Sensor[Acceleration] {
+
+  def generateData(traj: Trajectory, t: Time, seed: Seed) = {
+    traj.getAcceleration(t)
+  }
 
 }

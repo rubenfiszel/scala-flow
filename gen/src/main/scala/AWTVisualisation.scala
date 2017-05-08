@@ -12,31 +12,38 @@ class AWTVisualisation(sim: Simulation,
 
   def start() = {
 
+
     val datas = sim.simulate(dt, seed)
-    val pts   = datas._1.toIndexedSeq
+    val pts   = datas._2.toIndexedSeq
+
+    val chart = AWTChartComponentFactory.chart(Quality.Advanced)    
     val line  = new LineStrip()
+
     for (pt <- pts) {
       val p = pt.v.p
       //    println(t + " " + p)
       line.add(new Point(new Coord3d(p.x, p.y, p.z)))
     }
 
+
+    val kps = datas._1
+
+    for (kp <- kps.map(_.v.p).filter(_.isDefined).map(_.get)) {
+      val sph = new Sphere(new Coord3d(kp.x, kp.y, kp.z), 0.02f, 15, Color.random())
+      sph.setWireframeDisplayed(false)
+      chart.getScene().getGraph().add(sph)
+    }
+
     val p     = pts(0).v.p
-    val point = new Sphere(new Coord3d(p.x, p.y, p.z), 0.02f, 8, Color.BLUE)
-    /*  val p1 = new Polygon()
-     p1.add(new Point(new Coord3d(0, 0, 0)))
-     p1.add(new Point(new Coord3d(0, 0.5, 0)))
-     p1.add(new Point(new Coord3d(0, 0.5, 0.1)))
-     p1.setColor(Color.GREEN)
-     */
+    val point = new Sphere(new Coord3d(p.x, p.y, p.z), 0.02f, 20, Color.BLUE)
     point.setWireframeDisplayed(false)
     line.setWireframeColor(Color.RED)
 
-    val chart = AWTChartComponentFactory.chart(Quality.Advanced)
     chart.getScene().getGraph().add(line)
     chart.getScene().getGraph().add(point)
     //  chart.getScene().getGraph().add(p1)
-    chart.getView().setScale(new Scale(0, 1))
+//    chart.getView().setScale(new Scale(0, 1))
+    chart.getView().setSquared(false)
     chart.addMouseCameraController()
     chart.open("trajectory", 600, 600)
 
@@ -46,9 +53,11 @@ class AWTVisualisation(sim: Simulation,
           for (pt <- pts) {
             Thread.sleep(10)
             val p = pt.v.p
+//            print(t + " " + p)
             //        println(p)
             point.setPosition(new Coord3d(p.x, p.y, p.z))
             point.setVolume(pt.v.t.toFloat / 1000)
+
             //    chart.getScene.clear()
           }
         }
