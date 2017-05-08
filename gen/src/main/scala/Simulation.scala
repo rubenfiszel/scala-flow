@@ -1,29 +1,18 @@
 package spatial.fusion.gen
 
-trait Simulation {
-  def universe: Universe
-  def generators: Seq[Generator]
+trait Data {
+  def toValues: Seq[Real]
+}
 
-  def simulate(dt: Timestep, totalTime: Timestep, seed: Seed) = {
+case class Timestamped[+A](t: Time, v: A)
 
-    var elapsed: Timestep = 0
-    var retrieved         = List[Data]()
-    var states            = List[State]()
+case class Simulation(traj: Trajectory, sensors: Seq[(Timestep, Sensor[Data])]) {
 
-    states ::= universe.reset(seed)
-
-    def retrieveData() =
-      retrieved :::= generators
-        .flatMap(_.generate(universe, elapsed, dt))
-        .toList
-
-    retrieveData()
-    while (elapsed < totalTime) {
-      states ::= universe.update(dt)
-      elapsed += dt
-      retrieveData()
-    }
-    (states, retrieved)
+  def simulate(dt: Timestep, seed: Seed): (Stream[Timestamped[TrajectoryPoint]], Seq[Stream[Timestamped[Data]]]) = {
+    val tf = traj.tf
+    val points = genPerfectTimes(dt, tf).map(t => Timestamped(t, traj.getPoint(t)))
+    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
+    (points, datas)
   }
 
 }

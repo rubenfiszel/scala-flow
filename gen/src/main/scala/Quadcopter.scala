@@ -1,11 +1,13 @@
 package spatial.fusion.gen
 
+import scala.collection.GenSeq
 import spire.math._
 import spire.implicits._
 import breeze.linalg.{max => _, min => _, _ => _}
 //import breeze.math._
 //Author: Ruben Fiszel <ruben.fiszel@epfl.ch>
 //Inspired from RapidTrajectory from Mark W. Mueller <mwm@mwm.im>
+
 case class SingleAxisInit(p: Real, v: Real, a: Real)
 case class SingleAxisGoal(p: Option[Real], v: Option[Real], a: Option[Real])
 
@@ -128,7 +130,7 @@ case class Vec3(x: Real, y: Real, z: Real)
 
 object Vec3 {
   def zero = Vec3(0, 0, 0)
-  def one = Vec3(1, 1, 1)
+  def one  = Vec3(1, 1, 1)
 }
 
 case class Init(p: Vec3, v: Vec3, a: Vec3) {
@@ -139,12 +141,12 @@ object Init {
   def zero = Init(Vec3.zero, Vec3.zero, Vec3.zero)
 }
 
-case class Goal(p: Option[Vec3], v: Option[Vec3], a: Option[Vec3]) {
+case class Keypoint(p: Option[Vec3], v: Option[Vec3], a: Option[Vec3]) {
   def apply(i: Int) = SingleAxisGoal(p.map(_(i)), v.map(_(i)), a.map(_(i)))
 }
 
-object Goal {
-  def one = Goal(Some(Vec3.one), Some(Vec3.one), Some(Vec3.one))
+object Keypoint {
+  def one = Keypoint(Some(Vec3.one), Some(Vec3.one), Some(Vec3.one))
 }
 
 sealed trait Feasibility
@@ -153,13 +155,13 @@ case object ThrustLow      extends Feasibility
 case object Indeterminable extends Feasibility
 case object Feasible       extends Feasibility
 
-case class RapidTrajectory(init: Init = Init.zero, goal: Goal = Goal.one, g: Vec3 = Vec3(0, 0, 9.81), tf: Timeframe = 1.0) {
+case class TrajectorySection(init: Init = Init.zero,
+                             goal: Goal = Keypoint.one,
+                             tf: Timeframe = 1.0,
+                             g: Vec3 = Vec3(0, 0, 9.81)) {
   lazy val axis = (0 to 2).map(i => SingleAxisTrajectory(init(i), goal(i), tf))
 
-  def toVec(is: IndexedSeq[Real]): Vec3 =
-    Vec3(is(0), is(1), is(2))
-
-  def toVec(is: DenseVector[Real]): Vec3 =
+  def toVec(is: GenSeq[Real]): Vec3 =
     Vec3(is(0), is(1), is(2))
 
   // Return the trajectory's 3D jerk value at time `t`.
@@ -176,12 +178,12 @@ case class RapidTrajectory(init: Init = Init.zero, goal: Goal = Goal.one, g: Vec
     toVec(axis.map(_.getPosition(t)))
 
   def getNormalVector(t: Time) =
-    normalize(getAcceleration(t) - g)
+    toVec(normalize(getAcceleration(t) - g).toArray)
 
   def getThrust(t: Time): Thrust =
     norm((getAcceleration(t) - g))
 
-  def getBodyRates(t: Time, dt: Timeframe = 1e-3): Vec3 = {
+  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 = {
     val n0 = DenseVector(getNormalVector(t).toArray)
     val n1 = DenseVector(getNormalVector(t + dt).toArray)
 
@@ -189,7 +191,7 @@ case class RapidTrajectory(init: Init = Init.zero, goal: Goal = Goal.one, g: Vec
     val crossProd = cross(n0, n1)
     if (norm(crossProd) > 1e-6) {
       val sc = n0.dot(n1) / dt
-      toVec((normalize(crossProd) :* 2.0).map(acos(_)))
+      toVec((normalize(crossProd) :* 2.0).map(acos(_)).toArray)
     } else
       Vec3(0, 0, 0)
   }
@@ -197,10 +199,10 @@ case class RapidTrajectory(init: Init = Init.zero, goal: Goal = Goal.one, g: Vec
   lazy val cost =
     axis.map(_.cost).sum
 
-  def isFeasible(fminAllowed: Thrust,
-                 fmaxAllowed: Thrust,
-                 wmaxAllowed: Omega,
-                 minTimeSection: Timeframe): Feasibility = {
+  def isFeasible(fminAllowed: Thrust = 5.0,
+                 fmaxAllowed: Thrust = 20.0,
+                 wmaxAllowed: Omega = 20.0,
+                 minTimeSection: Timeframe = 0.02): Feasibility = {
 
     def section(t1: Time, t2: Time): Feasibility = {
       if ((t2 - t1) < minTimeSection)
@@ -245,9 +247,9 @@ case class RapidTrajectory(init: Init = Init.zero, goal: Goal = Goal.one, g: Vec
 
         val wBound =
           if (fminSqr > 1e-6)
-            sqrt(jmaxSqr / fminSqr)//#the 1e-6 is a divide-by-zero protection
+            sqrt(jmaxSqr / fminSqr) //#the 1e-6 is a divide-by-zero protection
           else
-            Double.PositiveInfinity 
+            Double.PositiveInfinity
 
         if ((fmin < fminAllowed) || (fmax > fmaxAllowed) || (wBound > wmaxAllowed)) {
           val tHalf = (t1 + t2) / 2.0
@@ -267,4 +269,99 @@ case class RapidTrajectory(init: Init = Init.zero, goal: Goal = Goal.one, g: Vec
     section(0, tf)
   }
 
+}
+
+case class TrajectoryPoint(p: Vec3,
+                           v: Vec3,
+                           a: Vec3,
+                           j: Vec3,
+                           nv: Vec3,
+                           t: Thrust,
+                           br: Vec3)
+
+case class Trajectory(init: Init,
+                      keypoints: List[(Keypoint, Timeframe)],
+                      g: Vec3) {
+
+  lazy val combined = {
+    var initS = init
+    keypoints.map {
+      case (kp, tf) => {
+        val section = TrajectorySection(initS, kp, tf, g)
+        initS = Init(section.getPosition(tf),
+                     section.getVelocity(tf),
+                     section.getAcceleration(tf))
+        section
+      }
+    }
+  }
+  lazy val tf =
+    keypoints.map(_._2).sum
+  
+  def getSection(t: Time) = {
+    var t      = 0.0
+    var kps    = keypoints
+    var offset = 0
+    while (!kps.isEmpty && t > kps.head._2) {
+      kps = kps.tail
+      t -= kps.head._2
+      offset += 1
+    }
+    (combined(offset), t)
+  }
+
+  def get[A](f: (TrajectorySection, Time) => A, t: Time): A = {
+    val (s, rt) = getSection(t)
+    f(s, t)
+  }
+
+  def getPosition(t: Time): Vec3 =
+    get(_.getPosition(_), t)
+
+  def getVelocity(t: Time): Vec3 =
+    get(_.getVelocity(_), t)
+
+  def getAcceleration(t: Time): Vec3 =
+    get(_.getAcceleration(_), t)
+
+  def getJerk(t: Time): Vec3 =
+    get(_.getJerk(_), t)
+
+  def getNormalVector(t: Time): Vec3 =
+    get(_.getNormalVector(_), t)
+
+  def getThrust(t: Time): Thrust =
+    get(_.getThrust(_), t)
+
+  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 =
+    get(_.getBodyRates(_, dt), t)
+
+  def getPoint(t: Time): TrajectoryPoint =
+    TrajectoryPoint(getPosition(t),
+                    getVelocity(t),
+                    getAcceleration(t),
+                    getJerk(t),
+                    getNormalVector(t),
+                    getThrust(t),
+                    getBodyRates(t))
+
+  lazy val cost =
+    combined.map(_.cost).sum
+
+  def isFeasible(fminAllowed: Thrust = 5.0,
+                 fmaxAllowed: Thrust = 20.0,
+                 wmaxAllowed: Omega = 20.0,
+                 minTimeSection: Timeframe = 0.02) = {
+    combined.forall(
+      _.isFeasible(fminAllowed, fmaxAllowed, wmaxAllowed) == Feasible)
+  }
+
+}
+
+object Trajectory {
+  def apply(init: Init = Init.zero,
+            goal: Goal = Keypoint.one,
+            tf: Timeframe = 1.0,
+            g: Vec3 = Vec3(0, 0, 9.81)): Trajectory =
+    Trajectory(init, List((goal, tf)), g)
 }
