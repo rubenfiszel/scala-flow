@@ -1,14 +1,14 @@
 package spatial.fusion.gen
 
+import io.circe._
 import io.circe.syntax._
 
-object JsonExport {
-  def export(
-    sim: Simulation,
-    dt: Timestep = 0.01,
-    seed: Seed = 12345) = {
-
-    val datas = sim.simulate(dt, seed)
-    datas.asJson
-  }
+case class JsonExport[A:Encoder]() extends Transformation[A, Json] {
+  def process(x: A) = x.asJson
 }
+
+object JsonExport {
+  def apply[A: Encoder](source: SourceStreamed[A]): TransformStreamed[A, Json] =
+    Transform(source, JsonExport[A])
+}
+

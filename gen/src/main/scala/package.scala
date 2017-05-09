@@ -28,30 +28,34 @@ package object gen {
 
   //variance in time prediction (simulate imperfection of reality)
   def genTimes(dt: Timestep,
-               tf: Timeframe,
                variance: Double,
                seed: Seed): Stream[Time] = {
     val u = Gaussian(0, variance * dt)(RandBasis.withSeed(seed))
-    genPerfectTimes(dt, tf).map(_ + u.draw())
+    genPerfectTimes(dt).map(_ + u.draw())
   }
 
-  def genPerfectTimes(dt: Timestep, tf: Timeframe): Stream[Time] = {
+  def genPerfectTimes(dt: Timestep): Stream[Time] = {
     def genTime(i: Long): Stream[Time] = (dt * i) #:: genTime(i + 1)
-    genTime(0).takeWhile(_ < tf)
+    genTime(0)
   }
 
   def fromRate(i: Long): Timestep = 1.0 / i
 
-  //JSON
+/*  //JSON
   implicit val encodeData: Encoder[Data] = new Encoder[Data] {
     final def apply(d: Data): Json = d.toValues.asJson
   }
 
   implicit val encodeTimestampedData: Encoder[Timestamped[Data]] =
     deriveEncoder
-  implicit val encodeTimestampedTrajPoint
+ */
+  implicit object Vec3Data extends Data[Vec3]{
+    def toValues(x: Vec3) = x.toArray.toSeq
+  }
+  
+  implicit def encodeTimestampedTrajPoint
     : Encoder[Timestamped[TrajectoryPoint]] = deriveEncoder
-  implicit val encodeTimestampedKeypoint
+  implicit def encodeTimestampedKeypoint
     : Encoder[Timestamped[Keypoint]] = deriveEncoder
 
 }

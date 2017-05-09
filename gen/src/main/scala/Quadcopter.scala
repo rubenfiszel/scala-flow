@@ -1,18 +1,15 @@
 package spatial.fusion.gen
+package quad
 
-import scala.collection.GenSeq
-import spire.math._
+import spatial.fusion.gen._
+import spire.math.{ Real => _, _ => _ }
 import spire.implicits._
-import breeze.linalg.{max => _, min => _, _ => _}
-import io.circe.generic.JsonCodec
+import breeze.linalg.{ norm, normalize, cross}
 
 //Author: Ruben Fiszel <ruben.fiszel@epfl.ch>
 //Inspired from RapidTrajectory from Mark W. Mueller <mwm@mwm.im>
 
-case class SingleAxisInit(p: Real, v: Real, a: Real)
-case class SingleAxisGoal(p: Option[Real], v: Option[Real], a: Option[Real])
-
-case class SingleAxisTrajectory(init: SingleAxisInit,
+case class SingleAxisQuadTrajectory(init: SingleAxisInit,
                                 goal: SingleAxisGoal,
                                 tf: Timeframe) {
 
@@ -126,37 +123,7 @@ case class SingleAxisTrajectory(init: SingleAxisInit,
 
 }
 
-@JsonCodec
-case class Vec3(x: Real, y: Real, z: Real)
-    extends DenseVector[Real](Array(x, y, z)) with Data {
-  def toValues = toArray.toSeq
-}
 
-object Vec3 {
-  def zero = Vec3(0, 0, 0)
-  def one  = Vec3(1, 1, 1)
-
-  def apply(gs: GenSeq[Real]): Vec3 =
-    Vec3(gs(0), gs(1), gs(2))
-}
-
-case class Init(p: Vec3, v: Vec3, a: Vec3) {
-  def apply(i: Int) = SingleAxisInit(p(i), v(i), a(i))
-}
-
-object Init {
-  def zero = Init(Vec3.zero, Vec3.zero, Vec3.zero)
-}
-
-@JsonCodec
-case class Keypoint(p: Option[Vec3], v: Option[Vec3], a: Option[Vec3]) {
-  def apply(i: Int) = SingleAxisGoal(p.map(_(i)), v.map(_(i)), a.map(_(i)))
-}
-
-object Keypoint {
-  def apply(p: Vec3): Keypoint = Keypoint(Some(p), None, None)
-  def one = Keypoint(Some(Vec3.one), Some(Vec3.one), Some(Vec3.one))
-}
 
 sealed trait Feasibility
 case object ThrustTooHigh     extends Feasibility
@@ -164,11 +131,11 @@ case object ThrustTooLow      extends Feasibility
 case object Indeterminable extends Feasibility
 case object Feasible       extends Feasibility
 
-case class TrajectorySection(init: Init = Init.zero,
+case class QuadTrajectorySection(init: Init = Init.zero,
                              goal: Goal = Keypoint.one,
                              tf: Timeframe = 1.0,
                              g: Vec3 = Vec3(0, 0, 9.81)) {
-  lazy val axis = (0 to 2).map(i => SingleAxisTrajectory(init(i), goal(i), tf))
+  lazy val axis = (0 to 2).map(i => SingleAxisQuadTrajectory(init(i), goal(i), tf))
 
   // Return the trajectory's 3D jerk value at time `t`.
   def getJerk(t: Time) =
@@ -278,24 +245,15 @@ case class TrajectorySection(init: Init = Init.zero,
 
 }
 
-@JsonCodec
-case class TrajectoryPoint(p: Vec3,
-                           v: Vec3,
-                           a: Vec3,
-                           j: Vec3,
-                           nv: Vec3,
-                           t: Thrust,
-                           br: Vec3)
-
-case class Trajectory(init: Init,
+case class QuadTrajectory(init: Init,
                       keypoints: List[(Keypoint, Timeframe)],
-                      g: Vec3) {
+                      g: Vec3) extends Trajectory {
 
   lazy val combined = {
     var initS = init
     keypoints.map {
       case (kp, tf) => {
-        val section = TrajectorySection(initS, kp, tf, g)
+        val section = QuadTrajectorySection(initS, kp, tf, g)
         initS = Init(section.getPosition(tf),
                      section.getVelocity(tf),
                      section.getAcceleration(tf))
@@ -319,7 +277,7 @@ case class Trajectory(init: Init,
     (combined(offset), nt)
   }
 
-  def get[A](f: (TrajectorySection, Time) => A, t: Time): A = {
+  def get[A](f: (QuadTrajectorySection, Time) => A, t: Time): A = {
     val (s, rt) = getSection(t)
     f(s, rt)
   }
@@ -379,17 +337,17 @@ case class Trajectory(init: Init,
 
 }
 
-object Trajectory {
+object QuadTrajectory {
   val EARTH_GRAVITY = Vec3(0, 0, 9.81)
   def apply(init: Init = Init.zero,
             goal: Goal = Keypoint.one,
             tf: Timeframe = 1.0,
-            g: Vec3 = EARTH_GRAVITY): Trajectory =
-    Trajectory(init, List((goal, tf)), g)
+            g: Vec3 = EARTH_GRAVITY): QuadTrajectory =
+    QuadTrajectory(init, List((goal, tf)), g)
 
   def apply(init: Init,
             keypoints: List[Keypoint],
-            tfs: List[Timeframe]): Trajectory =
-    Trajectory(init, keypoints.zip(tfs), EARTH_GRAVITY)
+            tfs: List[Timeframe]): QuadTrajectory =
+    QuadTrajectory(init, keypoints.zip(tfs), EARTH_GRAVITY)
 
 }

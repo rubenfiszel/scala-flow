@@ -6,15 +6,11 @@ import org.jzy3d.maths.{Coord3d, Scale}
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class AWTVisualisation(sim: Simulation,
-                       dt: Timestep = 0.002,
-                       seed: Seed = 12345) {
+class AWTVisualisation(points: SourceStreamed[Timestamped[TrajectoryPoint]], keypoints: SourceStreamed[Timestamped[Keypoint]]) {
 
   def start() = {
 
-
-    val datas = sim.simulate(dt, seed)
-    val pts   = datas._2.toIndexedSeq
+    val pts   = points.stream()
 
     val chart = AWTChartComponentFactory.chart(Quality.Advanced)    
     val line  = new LineStrip()
@@ -26,7 +22,7 @@ class AWTVisualisation(sim: Simulation,
     }
 
 
-    val kps = datas._1
+    val kps = keypoints.stream()
 
     for (kp <- kps.map(_.v.p).filter(_.isDefined).map(_.get)) {
       val sph = new Sphere(new Coord3d(kp.x, kp.y, kp.z), 0.02f, 15, Color.random())
