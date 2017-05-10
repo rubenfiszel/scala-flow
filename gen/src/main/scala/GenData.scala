@@ -36,7 +36,7 @@ object GenData extends App {
   val tf = traj.tf
 
   val keypointsS = KeypointSource(traj)
-  val clock = ClockStop(Clock(dt), tf)
+  val clock = Clock(dt, tf)
   val points = Cache(TrajectoryPointPulse(clock, traj))
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)
@@ -59,7 +59,7 @@ object GenData extends App {
 
     //The NormalVector through the ComplimentaryFilter
     val cov = DenseMatrix.eye[Real](3)
-    val imu = SensorPulse(ClockStop(Clock(dt), traj.tf), traj, IMU(Accelerometer(cov), Gyroscope(cov, dt)))
+    val imu = SensorPulse(Clock(dt, traj.tf), traj, IMU(Accelerometer(cov), Gyroscope(cov, dt)))
     val cf = ComplimentaryFilter(imu, 0.9, dt)
 
 

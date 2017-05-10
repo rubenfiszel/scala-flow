@@ -1,13 +1,9 @@
 package spatial.fusion.gen
 
-import breeze.stats.distributions._
 
 trait Data[A] {
   def toValues(x: A): Seq[Real]
 }
-
-case class Timestamped[+A](t: Time, v: A)
-
 
 trait Source[A] {
   def stream(): Stream[A]
@@ -49,32 +45,6 @@ trait Sink[A] extends Op[A] {
     source.stream().foreach(f)
 }
 
-case class Buffer[A](source1: Source[Time], source2: Source[Timestamped[A]])
-    extends Op2[Time, Timestamped[A]]
-    with Source[Stream[Timestamped[A]]] {
-
-  var i  = 0
-  var s1 = source1.stream()
-  var s2 = source2.stream()
-  def stream(): Stream[Stream[Timestamped[A]]] =
-    streamT(s1.head) #:: streamTail()
-  def streamTail(): Stream[Stream[Timestamped[A]]] = {
-    s1 = s1.tail
-    if (s2.isEmpty)
-      Stream()
-    else if (s1.isEmpty)
-      Stream(s2)
-    else
-      stream()
-  }
-
-  def streamT(stop: Time): Stream[Timestamped[A]] = {
-    val (pre, su) = s2.span(_.t < stop)
-    s2 = su
-    pre
-  }
-
-}
 
 case class Zip2[A, B](source1: Source[A], source2: Source[B])
     extends Op2[A, B]
@@ -93,22 +63,14 @@ case class Zip3[A, B, C](source1: Source[A],
     }
 }
 
-object Combine2 {
-
-  def apply[A, B](source1: Source[Time],
-                  source2: Source[Timestamped[A]],
-                  source3: Source[Timestamped[B]])
-      : Source[(Stream[Timestamped[A]], Stream[Timestamped[B]])] = {
-    Zip2(Buffer(source1, source2), Buffer(source1, source3))
-  }
-}
-
-
 case class Cache[A](source: Source[A]) extends Source[A] {
   lazy val cStream = source.stream()
   def stream()     = cStream
 }
 
+//case class Functor[A, F[_]](source: Source[F[A]], fmap: A => B) extends Source[F[B]] {
+//  def stream() = source.stream()
+//}
 //case class Buffer2(source1: Source[Time], source2: Source[Timestamped[A]], source3: Source[Timestamped[B]]) with Source[(Stream[Times
 
 case class Reduce[A](source: Source[Stream[A]], r: (A, A) => A)
@@ -120,23 +82,7 @@ case class Reduce[A](source: Source[Stream[A]], r: (A, A) => A)
       Stream()
 }
 
-case class TimestampFunctor[A, B](source: Source[Timestamped[A]], fmap: A => B)
-    extends Map[Timestamped[A], Timestamped[B]] {
-  def f(x: Timestamped[A]) = x.copy(v = fmap(x.v))
-}
 case class PrintSink[A](source: Source[A]) extends Sink[A] {
   def f(x: A) = println(x)
 }
 
-case class Clock(dt: Timestep) extends Source[Time] {
-  def stream() = genPerfectTimes(dt)
-}
-
-case class ClockStop(source: Source[Time], tf: Time) extends TakeWhile[Time] {
-  def f(x: Time) = x < tf
-}
-
-case class ClockVar(source: Source[Time], std: Timestep)
-    extends Map[Time, Time] {
-  def f(x: Time) = Gaussian(x, std)(Random).draw()
-}

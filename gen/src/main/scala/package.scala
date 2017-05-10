@@ -4,6 +4,7 @@ import breeze.stats.distributions._
 import io.circe._
 import io.circe.syntax._
 import io.circe.generic.semiauto._
+//import cats.free.Free
 
 package object gen {
 
@@ -58,6 +59,8 @@ package object gen {
   implicit def encodeTimestampedKeypoint
       : Encoder[Timestamped[Keypoint]] = deriveEncoder
 
-//  import cats.free.Free
-
+  type SourceT[A] = Source[Timestamped[A]]
+  type StreamT[A] = Stream[Timestamped[A]]
+  type Stream[A] = scala.Stream[A]
+  type MapT[A,B] = Map[Timestamped[A], Timestamped[B]]
 }
