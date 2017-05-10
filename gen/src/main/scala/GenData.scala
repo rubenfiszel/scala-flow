@@ -32,7 +32,7 @@ object GenData extends App {
 //  val viconCov = DenseMatrix.eye[Real](3) * 0.1
 //  val vicon = Vicon(viconCov)
 
-  val sim = Simulation(traj, Seq((0.1, vicon)))
+  val sim = Simulation(traj, Seq())//Seq((0.1, vicon)))
   val (keypointsS, points) = sim.simulate(dt)
 
   def awt() = {
