@@ -56,6 +56,8 @@ package object gen {
   implicit def encodeTimestampedTrajPoint
     : Encoder[Timestamped[TrajectoryPoint]] = deriveEncoder
   implicit def encodeTimestampedKeypoint
-    : Encoder[Timestamped[Keypoint]] = deriveEncoder
+      : Encoder[Timestamped[Keypoint]] = deriveEncoder
+
+//  import cats.free.Free
 
 }

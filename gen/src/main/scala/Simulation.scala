@@ -1,7 +1,7 @@
 package spatial.fusion.gen
 
-
-case class Simulation(traj: Trajectory, sensors: Seq[(Timestep, Sensor[_])]) {
+/*
+case class Simulation(model: Model, sensors: Seq[(Timestep, Sensor[Model, _])]) {
 
   def simulate(dt: Timestep) = {
     val tf = traj.tf
@@ -15,3 +15,4 @@ case class Simulation(traj: Trajectory, sensors: Seq[(Timestep, Sensor[_])]) {
   }
 
 }
+*/

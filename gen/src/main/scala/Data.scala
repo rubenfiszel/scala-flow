@@ -8,6 +8,7 @@ trait Data[A] {
 
 case class Timestamped[+A](t: Time, v: A)
 
+
 trait Source[A] {
   def stream(): Stream[A]
 }

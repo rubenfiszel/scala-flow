@@ -32,8 +32,15 @@ object GenData extends App {
 //  val viconCov = DenseMatrix.eye[Real](3) * 0.1
 //  val vicon = Vicon(viconCov)
 
-  val sim = Simulation(traj, Seq())//Seq((0.1, vicon)))
-  val (keypointsS, points) = sim.simulate(dt)
+//  val sim = Simulation(traj, Seq())//Seq((0.1, vicon)))
+  val tf = traj.tf
+
+  val keypointsS = KeypointSource(traj)
+  val clock = ClockStop(Clock(dt), tf)
+  val points = Cache(TrajectoryPointPulse(clock, traj))
+//    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
+//(keypoints, points, datas)
+   
 
   def awt() = {
     val vis = new AWTVisualisation(points, keypointsS)
@@ -68,8 +75,8 @@ object GenData extends App {
 
   }
 
-  figure()
-  awt()
+//  figure()
+//  awt()
   json()
 
 }
