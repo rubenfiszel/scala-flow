@@ -269,12 +269,12 @@ case class QuadTrajectory(init: Init,
     var nt      = t
     var kps    = keypoints
     var offset = 0
-    while (!kps.isEmpty && nt > kps.head._2) {
-      kps = kps.tail
+    while (!kps.isEmpty && nt >= kps.head._2) {
       nt -= kps.head._2
+      kps = kps.tail      
       offset += 1
     }
-    (combined(offset), nt)
+    (combined(min(offset, combined.length-1)), nt)
   }
 
   def get[A](f: (QuadTrajectorySection, Time) => A, t: Time): A = {

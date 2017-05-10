@@ -7,9 +7,10 @@ import io.circe.generic.semiauto._
 
 package object gen {
 
+  val Random = RandBasis.withSeed(12345)
+
   type Real      = Double
   type State     = Seq[Real]
-  type Seed      = Int
   type Timestep  = Real
   type Timeframe = Real
   type Time      = Real
@@ -28,9 +29,8 @@ package object gen {
 
   //variance in time prediction (simulate imperfection of reality)
   def genTimes(dt: Timestep,
-               variance: Double,
-               seed: Seed): Stream[Time] = {
-    val u = Gaussian(0, variance * dt)(RandBasis.withSeed(seed))
+               variance: Double): Stream[Time] = {
+    val u = Gaussian(0, variance * dt)(Random)
     genPerfectTimes(dt).map(_ + u.draw())
   }
 

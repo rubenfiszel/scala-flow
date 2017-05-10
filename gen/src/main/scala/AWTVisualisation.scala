@@ -6,7 +6,7 @@ import org.jzy3d.maths.{Coord3d, Scale}
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class AWTVisualisation(points: SourceStreamed[Timestamped[TrajectoryPoint]], keypoints: SourceStreamed[Timestamped[Keypoint]]) {
+class AWTVisualisation(points: Source[Timestamped[TrajectoryPoint]], keypoints: Source[Timestamped[Keypoint]]) {
 
   def start() = {
 
