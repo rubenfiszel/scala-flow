@@ -3,16 +3,16 @@ package spatial.fusion.gen
 import breeze.linalg._
 import breeze.stats.distributions._
 
-trait Sensor[A] {
+trait Sensor[A, M] {
 
   //1% variance in time
 //  def timeVariance: Double = 0.01
 
-  def generate(traj: Trajectory, t: Time): A
+  def generate(model: M, t: Time): A
 
 }
 
-case class Accelerometer(cov: DenseMatrix[Real]) extends Sensor[Acceleration] {
+case class Accelerometer(cov: DenseMatrix[Real]) extends Sensor[Acceleration, Trajectory] {
 
   def generate(traj: Trajectory, t: Time) = {
     Vec3(
@@ -24,7 +24,7 @@ case class Accelerometer(cov: DenseMatrix[Real]) extends Sensor[Acceleration] {
 }
 
 case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)
-    extends Sensor[BodyRates] {
+    extends Sensor[BodyRates, Trajectory] {
 
   def generate(traj: Trajectory, t: Time) = {
     Vec3(
@@ -35,7 +35,7 @@ case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)
 
 }
 
-case class Vicon(cov: DenseMatrix[Real]) extends Sensor[Position] {
+case class Vicon(cov: DenseMatrix[Real]) extends Sensor[Position, Trajectory] {
 
   def generate(traj: Trajectory, t: Time) = {
     Vec3(MultivariateGaussian(traj.getPosition(t), cov)(Random).draw().toArray)
@@ -43,15 +43,15 @@ case class Vicon(cov: DenseMatrix[Real]) extends Sensor[Position] {
 
 }
 
-case class Sensor2[A, B](sensor1: Sensor[A], sensor2: Sensor[B]) extends Sensor[(A,B)]{
-  def generate(traj: Trajectory, t: Time) =
-    (sensor1.generate(traj, t), sensor2.generate(traj, t))
+case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M]) extends Sensor[(A,B), M]{
+  def generate(model: M, t: Time) =
+    (sensor1.generate(model, t), sensor2.generate(model, t))
 }
 
-case class SensorPulse[A](source: Source[Time], traj: Trajectory, sensor: Sensor[A])
-    extends Map[Time, Timestamped[A]] {
-  def f(t: Time) =
-    Timestamped(t, sensor.generate(traj, t))
+case class SensorPulse[A, M](source: Source[Time, M],  sensor: Sensor[A, M])
+    extends Map[Time, Timestamped[A], M] {
+  def f(p: M, t: Time) =
+    Timestamped(t, sensor.generate(p, t))
 }
 
 object IMU {

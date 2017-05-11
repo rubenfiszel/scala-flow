@@ -35,22 +35,22 @@ object GenData extends App {
 //  val sim = Simulation(traj, Seq())//Seq((0.1, vicon)))
   val tf = traj.tf
 
-  val keypointsS = KeypointSource(traj)
-  val clock = Clock(dt, tf)
-  val points = Cache(TrajectoryPointPulse(clock, traj))
+  val keypointsS = KeypointSource
+  val clock = Clock[Trajectory](dt, tf)
+  val points = Cache(TrajectoryPointPulse(clock))
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)
    
 
   def awt() = {
     val vis = new AWTVisualisation(points, keypointsS)
-    vis.start()
+    vis.start(traj)
   }
 
   def json() = {
     val json = JsonExport(points)
     val print = PrintSink(json)
-    print.consumeAll()
+    print.consumeAll(traj)
   }
 
   def figure() {
@@ -59,7 +59,7 @@ object GenData extends App {
 
     //The NormalVector through the ComplimentaryFilter
     val cov = DenseMatrix.eye[Real](3)
-    val imu = SensorPulse(Clock(dt, traj.tf), traj, IMU(Accelerometer(cov), Gyroscope(cov, dt)))
+    val imu = SensorPulse(Clock(dt, traj.tf), IMU(Accelerometer(cov), Gyroscope(cov, dt)))
     val cf = ComplimentaryFilter(imu, 0.9, dt)
 
 
@@ -70,8 +70,8 @@ object GenData extends App {
     val r = functorNV
 
     //The two plots
-    PlotData.createFigure(cf)     
-    PlotData.createFigure(r)
+    PlotData.createFigure(traj, cf)     
+    PlotData.createFigure(traj, r)
 
   }
 

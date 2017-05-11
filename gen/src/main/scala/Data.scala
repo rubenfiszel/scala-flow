@@ -5,67 +5,72 @@ trait Data[A] {
   def toValues(x: A): Seq[Real]
 }
 
-trait Source[A] {
-  def stream(): Stream[A]
+trait Source[A, B] {
+  def stream(param: B): Stream[A]
 }
 
-trait Op[A] {
-  def source: Source[A]
+trait Op[A, B] {
+  def source: Source[A, B]
 }
 
-trait Op2[A, B] {
-  def source1: Source[A]
-  def source2: Source[B]
+trait Op2[A, B, C] {
+  def source1: Source[A, C]
+  def source2: Source[B, C]
 }
 
-trait Op3[A, B, C] {
-  def source1: Source[A]
-  def source2: Source[B]
-  def source3: Source[C]
+trait Op3[A, B, C, D] {
+  def source1: Source[A, D]
+  def source2: Source[B, D]
+  def source3: Source[C, D]
 }
 
-trait Map[A, B] extends Op[A] with Source[B] {
-  def f(x: A): B
-  def stream(): Stream[B] = source.stream().map(f)
+trait Map[A, B, C] extends Op[A, C] with Source[B, C] {
+  def f(p:C, x: A): B
+  def stream(p: C): Stream[B] = source.stream(p).map(x => f(p, x))
 }
 
-trait FlatMap[A, B] extends Op[A] with Source[B] {
-  def f(x: A): Stream[B]
-  def stream(): Stream[B] = source.stream().flatMap(f)
+trait FlatMap[A, B, C] extends Op[A, C] with Source[B, C] {
+  def f(p:C, x: A): Stream[B]
+  def stream(p: C): Stream[B] = source.stream(p).flatMap(x => f(p, x))
 }
 
-trait TakeWhile[A] extends Op[A] with Source[A] {
-  def f(x: A): Boolean
-  def stream() = source.stream().takeWhile(f)
+trait TakeWhile[A, B] extends Op[A, B] with Source[A, B] {
+  def f(p: B, x: A): Boolean
+  def stream(p: B) = source.stream(p).takeWhile(x => f(p, x))
 }
 
-trait Sink[A] extends Op[A] {
-  def f(x: A): Unit
-  def consumeAll() =
-    source.stream().foreach(f)
+trait Sink[A, B] extends Op[A, B] {
+  def f(p:B, x: A): Unit
+  def consumeAll(p: B) =
+    source.stream(p).foreach(x => f(p, x))
 }
 
 
-case class Zip2[A, B](source1: Source[A], source2: Source[B])
-    extends Op2[A, B]
-    with Source[(A, B)] {
-  def stream() = source1.stream().zip(source2.stream())
+case class Zip2[A, B, C](source1: Source[A, C], source2: Source[B, C])
+    extends Op2[A, B, C]
+    with Source[(A, B), C] {
+  def stream(p: C) = source1.stream(p).zip(source2.stream(p))
 }
 
-case class Zip3[A, B, C](source1: Source[A],
-                         source2: Source[B],
-                         source3: Source[C])
-    extends Op3[A, B, C]
-    with Source[(A, B, C)] {
-  def stream() =
-    source1.stream().zip(source2.stream()).zip(source3.stream()).map {
+case class Zip3[A, B, C, D](source1: Source[A, D],
+                         source2: Source[B, D],
+                         source3: Source[C, D])
+    extends Op3[A, B, C, D]
+    with Source[(A, B, C), D] {
+  def stream(p: D) =
+    source1.stream(p).zip(source2.stream(p)).zip(source3.stream(p)).map {
       case ((a, b), c) => (a, b, c)
     }
 }
 
-case class Cache[A](source: Source[A]) extends Source[A] {
-  lazy val cStream = source.stream()
-  def stream()     = cStream
+case class Cache[A, B](source: Source[A, B]) extends Source[A, B] {
+  var cStream: Option[Stream[A]] = None
+  def stream(p: B)  = {
+    if (cStream.isEmpty) {
+      cStream = Some(source.stream(p))
+    }
+    cStream.get
+  }
 }
 
 //case class Functor[A, F[_]](source: Source[F[A]], fmap: A => B) extends Source[F[B]] {
@@ -73,16 +78,16 @@ case class Cache[A](source: Source[A]) extends Source[A] {
 //}
 //case class Buffer2(source1: Source[Time], source2: Source[Timestamped[A]], source3: Source[Timestamped[B]]) with Source[(Stream[Times
 
-case class Reduce[A](source: Source[Stream[A]], r: (A, A) => A)
-    extends FlatMap[Stream[A], A] {
-  def f(x: Stream[A]): Stream[A] =
+case class Reduce[A, B](source: Source[Stream[A], B], r: (A, A) => A)
+    extends FlatMap[Stream[A], A, B] {
+  def f(p: B, x: Stream[A]): Stream[A] =
     if (!x.isEmpty)
       Stream(x.reduce(r))
     else
       Stream()
 }
 
-case class PrintSink[A](source: Source[A]) extends Sink[A] {
-  def f(x: A) = println(x)
+case class PrintSink[A, B](source: Source[A, B]) extends Sink[A, B] {
+  def f(p: B, x: A) = println(x)
 }
 

@@ -59,8 +59,8 @@ package object gen {
   implicit def encodeTimestampedKeypoint
       : Encoder[Timestamped[Keypoint]] = deriveEncoder
 
-  type SourceT[A] = Source[Timestamped[A]]
+  type SourceT[A, B] = Source[Timestamped[A], B]
   type StreamT[A] = Stream[Timestamped[A]]
   type Stream[A] = scala.Stream[A]
-  type MapT[A,B] = Map[Timestamped[A], Timestamped[B]]
+  type MapT[A,B, C] = Map[Timestamped[A], Timestamped[B], C]
 }

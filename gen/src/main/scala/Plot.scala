@@ -5,10 +5,10 @@ import breeze.linalg._
 
 object PlotData {
 
-  def createFigure[A: Data](s: Source[Timestamped[A]]) = {
+  def createFigure[A: Data, B](p:B, s: Source[Timestamped[A], B]) = {
 
     val data = implicitly[Data[A]]
-    val st = s.stream()
+    val st = s.stream(p)
     val x = st.map(_.t)
     val y = st.map(x => data.toValues(x.v))
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))

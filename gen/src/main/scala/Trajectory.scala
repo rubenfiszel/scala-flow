@@ -32,12 +32,12 @@ trait Trajectory {
 
 }
 
-case class TrajectoryPointPulse(source: Source[Time], traj: Trajectory) extends Map[Time, Timestamped[TrajectoryPoint]] {
-  def f(t: Time) = Timestamped(t, traj.getPoint(t))
+case class TrajectoryPointPulse(source: Source[Time, Trajectory]) extends Map[Time, Timestamped[TrajectoryPoint], Trajectory] {
+  def f(traj: Trajectory, t: Time) = Timestamped(t, traj.getPoint(t))
 }
 
-case class KeypointSource(traj: Trajectory) extends Source[Timestamped[Keypoint]] {
-  def stream() = {
+case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
+  def stream(traj: Trajectory) = {
     var ts = 0.0
     traj.keypoints.map { case (kp, tf) => {ts += tf; Timestamped(ts, kp) } }.toStream
   }

@@ -2,16 +2,15 @@ package spatial.fusion.gen
 
 trait Scheduler {
 
-  def schedule(sinkTs: Seq[Sink[_]]): Unit
+  def schedule[A](sinkTs: Seq[Sink[_, A]]): Unit
 
 }
 
-case class A()(implicit m: Int) 
 object LastScheduler extends Scheduler {
 
-  def schedule(sinkTs: Seq[Sink[_]]) = sinkTs match {
-    case x: SinkT[_] => ???
-    case x: Sink[_] => ???      
+  def schedule[A](sinkTs: Seq[Sink[_, A]]) = sinkTs match {
+    case x: SinkT[_, A] => ???
+    case x: Sink[_, A] => ???      
   }
 
 //  def schedule(sinkTs: Seq[SinkT[_]]) = {
