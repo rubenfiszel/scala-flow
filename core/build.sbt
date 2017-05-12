@@ -1,15 +1,8 @@
-name := "flow"
-
-organization := "dawn"
-
-version := "0.1"
-
-scalaVersion := "2.12.1"
+name := "flow-core"
 
 libraryDependencies += "org.scalanlp"  %% "breeze" % "0.13.1"
 libraryDependencies += "org.scalanlp"  %% "breeze-viz" % "0.13.1"
 libraryDependencies += "org.typelevel" %% "spire"  % "0.14.1"
-//libraryDependencies += "org.typelevel" %% "cats" % "0.9.0"
 
 resolvers += "jzy3d-snapshots" at "http://maven.jzy3d.org/releases"
 
