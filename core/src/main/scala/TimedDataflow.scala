@@ -8,6 +8,7 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
   def time = t + dt
 }
 
+
 case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
     extends Source[StreamT[A], B] {
 
@@ -73,7 +74,7 @@ object Combine2 {
       source1: Source[Time, C],
       source2: SourceT[A, C],
       source3: SourceT[B, C]): Source[(StreamT[A], StreamT[B]), C] = {
-    Zip2(Buffer(source1, source2), Buffer(source1, source3))
+    Buffer(source1, source2).zip(Buffer(source1, source3))
   }
 }
 

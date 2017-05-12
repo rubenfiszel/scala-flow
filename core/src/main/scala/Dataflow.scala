@@ -37,6 +37,14 @@ trait Source[A, B] {
   def flatMap[C](f: (B, A) => Stream[C]) =
     fromStream((p: B, s: Stream[A]) => s.flatMap(x => f(p, x)))
 
+  def reduceF[C](r: (C, C) => C)(implicit asC: A <:< Stream[C]) =
+    map(asC).map(_.reduce(r))
+  def reduceF[C](r: (B, C, C) => C)(implicit asC: A <:< Stream[C]) =
+    map(asC).map((p: B, s: Stream[C]) => s.reduce(Function.uncurried(r.curried(p))))
+
+  def zip[C](s2: Source[C, B]) =
+    fromStream((p: B, s1: Stream[A]) => s1.zip(s2.stream(p)))
+  
 }
 
 trait Sink[B] {
@@ -97,20 +105,6 @@ trait Sink2[A, B, C] extends SinkP[C] {
   }
 }
 
-case class Zip2[A, B, C](source1: Source[A, C], source2: Source[B, C])
-    extends Source[(A, B), C] {
-  def stream(p: C) = source1.stream(p).zip(source2.stream(p))
-}
-
-case class Zip3[A, B, C, D](source1: Source[A, D],
-                            source2: Source[B, D],
-                            source3: Source[C, D])
-    extends Source[(A, B, C), D] {
-  def stream(p: D) =
-    source1.stream(p).zip(source2.stream(p)).zip(source3.stream(p)).map {
-      case ((a, b), c) => (a, b, c)
-    }
-}
 
 case class Cache[A, B](source: Source[A, B]) extends Source[A, B] {
   var cStream: Option[Stream[A]] = None
@@ -122,23 +116,3 @@ case class Cache[A, B](source: Source[A, B]) extends Source[A, B] {
   }
 }
 
-//case class Functor[A, F[_]](source: Source[F[A]], fmap: A => B) extends Source[F[B]] {
-//  def stream() = source.stream()
-//}
-//case class Buffer2(source1: Source[Time], source2: Source[Timestamped[A]], source3: Source[Timestamped[B]]) with Source[(Stream[Times
-/*
-case class Reduce[A, B](source: Source[Stream[A], B], r: (A, A) => A)
-    extends Source[A,B] {
-  def f(p: B, x: Stream[A]): Stream[A] =
-    if (!x.isEmpty)
-      Stream(x.reduce(r))
-    else
-      Stream()
-
-  def stream() =
-}
- */
-
-case class PrintSink[A, B](source: Source[A, B]) extends Sink1[A, B] {
-  def f(p: B, x: A) = println(x)
-}

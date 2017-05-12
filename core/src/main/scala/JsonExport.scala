@@ -9,3 +9,7 @@ object JsonExport {
   
 }
 
+case class PrintSink[A, B](source: Source[A, B]) extends Sink1[A, B] {
+  def f(p: B, x: A) = println(x)
+}
+
