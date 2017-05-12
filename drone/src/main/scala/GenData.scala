@@ -50,9 +50,9 @@ object GenData extends App {
   val cov   = DenseMatrix.eye[Real](3)
   val alpha = 0.9
 
-  val imu = SensorPulse(TrajectoryClock(fdt),
+  val imu = Map(TrajectoryClock(fdt),
                         IMU(Accelerometer(cov), Gyroscope(cov, fdt)))
-  val cf = FilterApply(imu, ComplimentaryFilter(alpha, fdt))
+  val cf = Map(imu, ComplimentaryFilter(alpha, fdt))
 
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)

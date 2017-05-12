@@ -3,13 +3,15 @@ package dawn.flow
 import breeze.linalg._
 import breeze.stats.distributions._
 
-trait Sensor[A, M] {
+trait Sensor[A, M] extends ((M, Time) => Timestamped[A]) {
 
   //1% variance in time
 //  def timeVariance: Double = 0.01
 
   def generate(model: M, t: Time): A
 
+  def apply(p: M, t: Time) =
+    Timestamped(t, generate(p, t))
 }
 
 case class Accelerometer(cov: DenseMatrix[Real]) extends Sensor[Acceleration, Trajectory] {
@@ -48,11 +50,11 @@ case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M]) extend
     (sensor1.generate(model, t), sensor2.generate(model, t))
 }
 
-case class SensorPulse[A, M](source: Source[Time, M],  sensor: Sensor[A, M])
+/*case class SensorPulse[A, M](source: Source[Time, M],  sensor: Sensor[A, M])
     extends Map[Time, Timestamped[A], M] {
   def f(p: M, t: Time) =
     Timestamped(t, sensor.generate(p, t))
-}
+}*/
 
 object IMU {
   def apply(acc: Accelerometer, gyro: Gyroscope) = Sensor2(acc, gyro)

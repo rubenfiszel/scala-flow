@@ -26,6 +26,13 @@ trait Map[A, B, C] extends Op[A, C] with Source[B, C] {
   }
 }
 
+object Map {
+
+  def apply[A, B, C](source1: Source[A, C], fun: (C, A) => B) = new Map[A, B, C] {
+    def source = source1
+    def f(p: C, x: A) = fun(p, x)
+  }
+}
 trait FlatMap[A, B, C] extends Op[A, C] with Source[B, C] {
   def f(p: C, x: A): Stream[B]
   def stream(p: C): Stream[B] = source.stream(p).flatMap(x => f(p, x))
