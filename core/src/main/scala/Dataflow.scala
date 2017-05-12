@@ -1,7 +1,6 @@
 package dawn.flow
 
 object Source {
-
   def apply[A, B](stream1: B => Stream[A]) = new Source[A, B] {
     def stream(param1: B) = stream1(param1)
   }
@@ -11,9 +10,10 @@ trait Source[A, B] {
 
   def stream(param: B): Stream[A]
 
-    
-  def fromStream[C](f: (B, Stream[A]) => Stream[C]) = Source.apply((p: B) => f(p, stream(p)))
-  def fromStream[C](f: (Stream[A]) => Stream[C])    = Source.apply((p: B) => f(stream(p)))
+  def fromStream[C](f: (B, Stream[A]) => Stream[C]) =
+    Source.apply((p: B) => f(p, stream(p)))
+  def fromStream[C](f: (Stream[A]) => Stream[C]) =
+    Source.apply((p: B) => f(stream(p)))
 
   def filter(b: (A) => Boolean) = fromStream(_.filter(b))
   def filter(b: (B, A) => Boolean) =

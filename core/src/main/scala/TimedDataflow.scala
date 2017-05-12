@@ -8,7 +8,6 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
   def time = t + dt
 }
 
-
 case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
     extends Source[StreamT[A], B] {
 
