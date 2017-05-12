@@ -15,6 +15,8 @@ trait Source[A, B] {
   def fromStream[C](f: (Stream[A]) => Stream[C]) =
     Source.apply((p: B) => f(stream(p)))
 
+  def cache() = Cache(this)
+
   def filter(b: (A) => Boolean) = fromStream(_.filter(b))
   def filter(b: (B, A) => Boolean) =
     fromStream((p: B, s: Stream[A]) => s.filter(x => b(p, x)))
@@ -31,8 +33,9 @@ trait Source[A, B] {
     map(asC).map((p: B, x: Timestamped[C]) => x.copy(v = f(p, x.v)))
 
   def mapT[C, D](f: (C) => D)(implicit asC: A <:< Timestamped[C]) =
-    map(asC).map((x: Timestamped[C]) => x.copy(v = f(x.v)))
+    map(asC).map(x => x.copy(v = f(x.v)))
 
+  
   def flatMap[C](f: (A) => Stream[C]) = fromStream(_.flatMap(f))
   def flatMap[C](f: (B, A) => Stream[C]) =
     fromStream((p: B, s: Stream[A]) => s.flatMap(x => f(p, x)))
@@ -44,6 +47,16 @@ trait Source[A, B] {
 
   def zip[C](s2: Source[C, B]) =
     fromStream((p: B, s1: Stream[A]) => s1.zip(s2.stream(p)))
+
+  def latency[C](dt1: Timestep)(implicit asC: A <:< Timestamped[C]) =
+    map(asC).map(x => x.copy(dt = x.dt + dt1))
+
+  def buffer[C](time: Source[Time, B])(implicit asC: A <:< Timestamped[C]) =
+    Buffer(time, this.map(asC))
+
+  def combine[C, D](time: Source[Time, B], source2: SourceT[D, B])(implicit asC: A <:< Timestamped[C]) =
+    Combine(time, this.map(asC), source2)
+
   
 }
 

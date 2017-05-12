@@ -61,7 +61,7 @@ object ClockStop {
 
 object Latency {
   def apply[A, B](source: SourceT[A, B], dt1: Timestep) =
-    source.map(x => x.copy(dt = x.dt + dt1))
+    source.latency(dt1)
 }
 
 object ClockVar {
@@ -69,7 +69,7 @@ object ClockVar {
     source.map(Gaussian(_, std)(Random).draw())
 }
 
-object Combine2 {
+object Combine {
   def apply[A, B, C](
       source1: Source[Time, C],
       source2: SourceT[A, C],

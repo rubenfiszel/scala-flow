@@ -40,7 +40,7 @@ object GenData extends App {
   //We cache it to showcase Cache that avoids recomputing points each time
   val clock1 = TrajectoryClock(dt)
   val trajPP = clock1.map(TrajectoryPointPulse)
-  val points = Cache(trajPP)
+  val points = trajPP.cache()
 
   //******* Filter ********
   //Rate at which sensor geenerate data
