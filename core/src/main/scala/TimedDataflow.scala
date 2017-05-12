@@ -12,6 +12,7 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
 case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
     extends Op2[StreamT[A], B, Time, Timestamped[A]] {
 
+
   def stream(p: B): Stream[StreamT[A]] = {
     var i  = 0
     var s1 = source1.stream(p)
@@ -41,7 +42,7 @@ case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
 
 }
 
-case class Clock(dt: Timestep) extends Source[Time, Null] with Sourcable {
+case class Clock(dt: Timestep) extends Source[Time, Null]  {
   def sources = List()
   def stream(p: Null) = genPerfectTimes(dt)
 }

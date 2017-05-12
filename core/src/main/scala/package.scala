@@ -1,9 +1,7 @@
 package dawn
 
 import breeze.stats.distributions._
-import io.circe._
-import io.circe.syntax._
-import io.circe.generic.semiauto._
+
 //import cats.free.Free
 
 package object flow {
@@ -40,7 +38,8 @@ package object flow {
   type Stream[A] = scala.Stream[A]
 
   implicit def fromNothing[A, B](s: Source[A, Null]) = new Source[A, B] {
-    def sources = List(s)
+    override def toString = s.toString
+    def sources = s.sources
     def stream(p: B) = s.stream(null)
   }
 

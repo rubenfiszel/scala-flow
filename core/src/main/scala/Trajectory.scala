@@ -33,6 +33,7 @@ trait Trajectory {
 }
 
 object TrajectoryPointPulse extends ((Trajectory, Time) => Timestamped[TrajectoryPoint]) {
+  override def toString = getClass.getSimpleName
   def apply(traj: Trajectory, t: Time) = Timestamped(t, traj.getPoint(t))
 }
 

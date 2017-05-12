@@ -5,6 +5,8 @@ import breeze.stats.distributions._
 
 trait Sensor[A, M] extends ((M, Time) => Timestamped[A]) {
 
+  override def toString = getClass.getSimpleName
+  
   def generate(model: M, t: Time): A
 
   def apply(p: M, t: Time) =

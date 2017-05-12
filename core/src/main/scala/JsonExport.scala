@@ -5,7 +5,7 @@ import io.circe.syntax._
 
 object JsonExport {
 
-  def apply[A:Encoder, B](s: Source[A, B]) = s.map(_.asJson)
+  def apply[A:Encoder, B](s: Source[A, B]) = s.map(NamedFunction1((x: A) => x.asJson, "JsonExport"))
   
 }
 

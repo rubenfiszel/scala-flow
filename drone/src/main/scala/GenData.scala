@@ -66,7 +66,7 @@ object GenData extends App {
     sinks ++= Seq(vis)
   }
 
-  def json() = {
+  def printJson() = {
     //Map to json
     val jsonP  = JsonExport(points)
     val jsonCF = JsonExport(cf)
@@ -93,17 +93,13 @@ object GenData extends App {
     sinks ++= Seq(f1, f2)
   }
 
-  def printSources() {
-    println("Print sources")
-    points.printRec
-  }
 
 //  figure()
-//  awt()
-//  json()
+  awt()
+//  printJson()
 
   val sim = Simulation(traj, sinks, SimpleScheduler)
   sim.run()
 
-  printSources()
+  println(Sourcable.graph(sinks))
 }

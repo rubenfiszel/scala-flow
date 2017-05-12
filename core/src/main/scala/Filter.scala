@@ -2,6 +2,8 @@ package dawn.flow
 
 trait SignalFilter[A, B, C] extends ((C, Timestamped[A]) => Timestamped[B]) {
 
+  override def toString = getClass.getSimpleName
+  
   def filter(p: C, x: Timestamped[A]): B
 
   def apply(p: C, x: Timestamped[A]) = Timestamped(x.t, filter(p, x))
