@@ -8,19 +8,9 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
   def time = t + dt
 }
 
-object MapT {
-
-  def apply[A, B, C](source1: SourceT[A, C], fun: (C, A) => B): MapT[A, B, C] =
-    Map.apply(source1, (p: C, x: Timestamped[A]) => x.copy(v = fun(p, x.v)))
-
-  def apply[A, B, C](source1: SourceT[A, C], fun: (A) => B): MapT[A, B, C] =
-    Map.apply(source1, (p: C, x: Timestamped[A]) => x.copy(v = fun(x.v)))
-
-}
 
 case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
-    extends Op2[Time, Timestamped[A], B]
-    with Source[StreamT[A], B] {
+    extends Source[StreamT[A], B] {
 
   def stream(p: B): Stream[StreamT[A]] = {
     var i  = 0

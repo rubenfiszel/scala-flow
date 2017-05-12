@@ -39,7 +39,7 @@ object GenData extends App {
   val keypointsS = KeypointSource
   //We cache it to showcase Cache that avoids recomputing points each time
   val clock1 = TrajectoryClock(dt)
-  val trajPP = TrajectoryPointPulse(clock1)
+  val trajPP = clock1.map(TrajectoryPointPulse)
   val points = Cache(trajPP)
 
   //******* Filter ********

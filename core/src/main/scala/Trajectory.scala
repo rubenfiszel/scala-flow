@@ -32,8 +32,8 @@ trait Trajectory {
 
 }
 
-case class TrajectoryPointPulse(source: Source[Time, Trajectory]) extends Map[Time, Timestamped[TrajectoryPoint], Trajectory] {
-  def f(traj: Trajectory, t: Time) = Timestamped(t, traj.getPoint(t))
+object TrajectoryPointPulse extends ((Trajectory, Time) => Timestamped[TrajectoryPoint]) {
+  def apply(traj: Trajectory, t: Time) = Timestamped(t, traj.getPoint(t))
 }
 
 case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {

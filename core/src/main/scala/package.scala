@@ -38,7 +38,6 @@ package object flow {
   type SourceT[A, B] = Source[Timestamped[A], B]
   type StreamT[A] = Stream[Timestamped[A]]
   type Stream[A] = scala.Stream[A]
-  type MapT[A,B, C] = Map[Timestamped[A], Timestamped[B], C]
 
   implicit def fromNothing[A, B](s: Source[A, Null]): Source[A, B] = new Source[A,B] {
     def stream(p: B) = s.stream(null)
