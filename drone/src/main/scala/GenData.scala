@@ -38,7 +38,9 @@ object GenData extends App {
 
   val keypointsS = KeypointSource
   //We cache it to showcase Cache that avoids recomputing points each time
-  val points = Cache(TrajectoryPointPulse(TrajectoryClock(dt)))
+  val clock1 = TrajectoryClock(dt)
+  val trajPP = TrajectoryPointPulse(clock1)
+  val points = Cache(trajPP)
 
   //******* Filter ********
   //Rate at which sensor geenerate data
@@ -50,9 +52,9 @@ object GenData extends App {
   val cov   = DenseMatrix.eye[Real](3)
   val alpha = 0.9
 
-  val imu = Map(TrajectoryClock(fdt),
-                        IMU(Accelerometer(cov), Gyroscope(cov, fdt)))
-  val cf = Map(imu, ComplimentaryFilter(alpha, fdt))
+  val clock2 = TrajectoryClock(fdt)
+  val imu = clock2.map(IMU(Accelerometer(cov), Gyroscope(cov, fdt)))
+  val cf = imu.map(ComplimentaryFilter(alpha, fdt))
 
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)
@@ -77,7 +79,7 @@ object GenData extends App {
 
   def figure() = {
     //The actual normal vector
-    val functorNV = TimestampFunctor(points, (x: TrajectoryPoint) => x.nv)
+    val functorNV = points.mapT( (x: TrajectoryPoint) => x.nv)
     //    This is to buff data every 0.3 sec
     //    def reduce[A](x: Timestamped[A], y: Timestamped[A]) = y
     //    val r = Reduce(Buffer(Clock(dt), functorNV), reduce[Vec3])

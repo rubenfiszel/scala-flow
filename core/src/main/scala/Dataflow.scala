@@ -1,7 +1,24 @@
 package dawn.flow
 
 trait Source[A, B] {
+
   def stream(param: B): Stream[A]
+
+  def filter(b: (B, A) => Boolean) = Filter(this, b)
+  def filter(b: (A) => Boolean) = Filter(this, b)  
+
+  def takeWhile(b: (B, A) => Boolean) = TakeWhile(this, b)
+  def takeWhile(b: (A) => Boolean) = TakeWhile(this, b)
+
+  def map[C](f: (B, A) => C) = Map(this, f)
+  def map[C](f: (A) => C) = Map(this, f)
+
+  def mapT[C, D](f: (B, C) => D)(implicit asC: A <:< Timestamped[C]) = MapT[C, D, B](map(asC), f)
+  def mapT[C, D](f: (C) => D)(implicit asC: A <:< Timestamped[C]) = MapT[C, D, B](map(asC), f)  
+
+  def flatMap[C](f: (B, A) => Stream[C]) = FlatMap(this, f)
+  def flatMap[C](f: (A) => Stream[C]) = FlatMap(this, f)  
+
 }
 
 trait Op[A, B] {
@@ -27,15 +44,43 @@ trait Map[A, B, C] extends Op[A, C] with Source[B, C] {
 }
 
 object Map {
-
   def apply[A, B, C](source1: Source[A, C], fun: (C, A) => B) = new Map[A, B, C] {
     def source = source1
     def f(p: C, x: A) = fun(p, x)
   }
+
+  def apply[A, B, C](source1: Source[A, C], fun: (A) => B): Map[A, B, C] = apply(source1, (p: C, x: A) => fun(x))    
 }
+
 trait FlatMap[A, B, C] extends Op[A, C] with Source[B, C] {
   def f(p: C, x: A): Stream[B]
   def stream(p: C): Stream[B] = source.stream(p).flatMap(x => f(p, x))
+}
+
+object FlatMap {
+
+  def apply[A, B, C](source1: Source[A, C], fun: (C, A) => Stream[B]) = new FlatMap[A, B, C] {
+    def source = source1
+    def f(p: C, x: A) = fun(p, x)
+  }
+
+  def apply[A, B, C](source1: Source[A, C], fun: (A) => Stream[B]): FlatMap[A, B, C] = apply(source1, (p: C, x: A) => fun(x))  
+}
+
+trait Filter[A, B] extends Op[A, B] with Source[A, B] {
+  def b(p: B, x: A): Boolean
+  def stream(p: B): Stream[A] = source.stream(p).filter(x => b(p, x))
+}
+
+object Filter {
+
+  def apply[A, B](source1: Source[A, B], fun: (B, A) => Boolean) = new Filter[A, B] {
+    def source = source1
+    def b(p: B, x: A) = fun(p, x)
+  }
+
+  def apply[A, B](source1: Source[A, B], fun: (A) => Boolean): Filter[A, B] = apply(source1, (p: B, x: A) => fun(x))
+
 }
 
 trait TakeWhile[A, B] extends Op[A, B] with Source[A, B] {
@@ -43,9 +88,22 @@ trait TakeWhile[A, B] extends Op[A, B] with Source[A, B] {
   def stream(p: B) = source.stream(p).takeWhile(x => f(p, x))
 }
 
+object TakeWhile {
+
+  def apply[A, B](source1: Source[A, B], fun: (B, A) => Boolean): TakeWhile[A, B] = new TakeWhile[A, B] {
+    def source = source1
+    def f(p: B, x: A) = fun(p, x)
+  }
+
+  def apply[A, B](source1: Source[A, B], fun: (A) => Boolean): TakeWhile[A, B] = apply(source1, (p: B, x: A) => fun(x))
+  
+}
+
+
 trait Sink[B] {
   def consumeAll(p: B): Unit
 }
+
 trait SinkP[B] extends Sink[B] {
   def isEmpty: Boolean
   def consume(p: B): Unit
