@@ -1,40 +1,41 @@
 package dawn.flow
 
 object Source {
+
   def apply[A, B](stream1: B => Stream[A]) = new Source[A, B] {
     def stream(param1: B) = stream1(param1)
   }
-
-  def apply[A, B, C](source: Source[A, B], f: Stream[A] => Stream[C]): Source[C, B] = apply((p: B) => f(source.stream(p)))
-
-  def apply[A, B, C](source: Source[A, B], f: (B, Stream[A]) => Stream[C]): Source[C, B] = apply((p: B) => f(p, source.stream(p)))
-
 }
 
 trait Source[A, B] {
 
   def stream(param: B): Stream[A]
 
-  def fromStreamMap[C](f: (B, Stream[A]) => Stream[C]) = Source.apply(this, f)
-  def fromStreamMap[C](f: (Stream[A]) => Stream[C]) = Source.apply(this, f)
+    
+  def fromStream[C](f: (B, Stream[A]) => Stream[C]) = Source.apply((p: B) => f(p, stream(p)))
+  def fromStream[C](f: (Stream[A]) => Stream[C])    = Source.apply((p: B) => f(stream(p)))
 
-  def filter(b: (A) => Boolean)    = fromStreamMap(_.filter(b))  
-  def filter(b: (B, A) => Boolean) = fromStreamMap((p: B, s: Stream[A]) => s.filter(x => b(p, x)))
+  def filter(b: (A) => Boolean) = fromStream(_.filter(b))
+  def filter(b: (B, A) => Boolean) =
+    fromStream((p: B, s: Stream[A]) => s.filter(x => b(p, x)))
 
-  def takeWhile(b: (A) => Boolean)    = fromStreamMap(_.takeWhile(b))  
-  def takeWhile(b: (B, A) => Boolean) = fromStreamMap((p: B, s: Stream[A]) => s.takeWhile(x => b(p, x)))
+  def takeWhile(b: (A) => Boolean) = fromStream(_.takeWhile(b))
+  def takeWhile(b: (B, A) => Boolean) =
+    fromStream((p: B, s: Stream[A]) => s.takeWhile(x => b(p, x)))
 
-  def map[C](f: (A) => C) = fromStreamMap(_.map(f))
-  def map[C](f: (B, A) => C) = fromStreamMap((p: B, s: Stream[A]) => s.map(x => f(p, x)))
+  def map[C](f: (A) => C) = fromStream(_.map(f))
+  def map[C](f: (B, A) => C) =
+    fromStream((p: B, s: Stream[A]) => s.map(x => f(p, x)))
 
   def mapT[C, D](f: (B, C) => D)(implicit asC: A <:< Timestamped[C]) =
     map(asC).map((p: B, x: Timestamped[C]) => x.copy(v = f(p, x.v)))
 
-  def mapT[C, D](f: (C) => D)(implicit asC: A <:< Timestamped[C]) =    
+  def mapT[C, D](f: (C) => D)(implicit asC: A <:< Timestamped[C]) =
     map(asC).map((x: Timestamped[C]) => x.copy(v = f(x.v)))
 
-  def flatMap[C](f: (A) => Stream[C])    = fromStreamMap(_.flatMap(f))  
-  def flatMap[C](f: (B, A) => Stream[C]) = fromStreamMap((p: B, s: Stream[A]) => s.flatMap(x => f(p, x))) 
+  def flatMap[C](f: (A) => Stream[C]) = fromStream(_.flatMap(f))
+  def flatMap[C](f: (B, A) => Stream[C]) =
+    fromStream((p: B, s: Stream[A]) => s.flatMap(x => f(p, x)))
 
 }
 
@@ -51,7 +52,7 @@ trait SinkP[B] extends Sink[B] {
 
 trait Sink1[A, B] extends SinkP[B] {
 
-  def source: Source[A,B]  
+  def source: Source[A, B]
   def f(p: B, x: A): Unit
 
   var iterator: Option[Iterator[A]] = None
@@ -72,8 +73,8 @@ trait Sink1[A, B] extends SinkP[B] {
 
 trait Sink2[A, B, C] extends SinkP[C] {
 
-  def source1: Source[A,C]
-  def source2: Source[B,C]
+  def source1: Source[A, C]
+  def source2: Source[B, C]
 
   def f1(p: C, x: A): Unit
   def f2(p: C, x: B): Unit
@@ -134,9 +135,9 @@ case class Reduce[A, B](source: Source[Stream[A], B], r: (A, A) => A)
     else
       Stream()
 
-  def stream() = 
+  def stream() =
 }
-*/
+ */
 
 case class PrintSink[A, B](source: Source[A, B]) extends Sink1[A, B] {
   def f(p: B, x: A) = println(x)
