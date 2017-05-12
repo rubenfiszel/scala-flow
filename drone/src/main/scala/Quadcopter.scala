@@ -1,7 +1,6 @@
-package spatial.fusion.gen
-package quad
+package dawn.flow.drone
 
-import spatial.fusion.gen._
+import dawn.flow._
 import spire.math.{ Real => _, _ => _ }
 import spire.implicits._
 import breeze.linalg.{ norm, normalize, cross}

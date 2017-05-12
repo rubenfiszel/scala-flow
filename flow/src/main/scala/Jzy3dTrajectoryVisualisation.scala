@@ -1,4 +1,6 @@
-package spatial.fusion.gen
+package dawn.flow.drone
+
+import dawn.flow._
 
 import org.jzy3d.chart.factories.AWTChartComponentFactory
 import org.jzy3d.colors.Color
@@ -6,11 +8,11 @@ import org.jzy3d.maths.{Coord3d, Scale}
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class AWTVisualisation(points: SourceT[TrajectoryPoint, Trajectory], keypoints: SourceT[Keypoint, Trajectory]) {
+class Jzy3dTrajectoryVisualisation(source1: SourceT[TrajectoryPoint, Trajectory], source2: SourceT[Keypoint, Trajectory]) extends Sink[Trajectory]{
 
-  def start(traj: Trajectory) = {
+  def consumeAll(traj: Trajectory) = {
 
-    val pts   = points.stream(traj)
+    val pts   = source1.stream(traj)
 
     val chart = AWTChartComponentFactory.chart(Quality.Advanced)    
     val line  = new LineStrip()
@@ -22,7 +24,7 @@ class AWTVisualisation(points: SourceT[TrajectoryPoint, Trajectory], keypoints: 
     }
 
 
-    val kps = keypoints.stream(traj)
+    val kps = source2.stream(traj)
 
     for (kp <- kps.map(_.v.p).filter(_.isDefined).map(_.get)) {
       val sph = new Sphere(new Coord3d(kp.x, kp.y, kp.z), 0.02f, 15, Color.random())
@@ -45,7 +47,7 @@ class AWTVisualisation(points: SourceT[TrajectoryPoint, Trajectory], keypoints: 
 
     val pt = new Thread(new Runnable {
       def run() = {
-        while (true) {
+        while (!Thread.currentThread().isInterrupted()) {
           for (pt <- pts) {
             Thread.sleep(10)
             val p = pt.v.p
@@ -60,6 +62,7 @@ class AWTVisualisation(points: SourceT[TrajectoryPoint, Trajectory], keypoints: 
       }
     })
     pt.start()
+//    chart.getScene().getGraph().addWindowListener(???)
   }
 
 }

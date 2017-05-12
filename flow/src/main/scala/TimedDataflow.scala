@@ -1,8 +1,10 @@
-package spatial.fusion.gen
+ package dawn.flow
 
 import breeze.stats.distributions._
+import io.circe.generic.JsonCodec
 
-case class Timestamped[+A](t: Time, v: A, dt: Timestep = 0) {
+@JsonCodec
+case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
   def time = t + dt
 }
 
@@ -45,21 +47,21 @@ case class TimestampFunctor[A, B, C](source: SourceT[A, C], fmap: A => B)
 }
 
 
-case class Clock[A](dt: Timestep) extends Source[Time, A] {
-  def stream(p: A) = genPerfectTimes(dt)
+case class Clock(dt: Timestep) extends Source[Time, Null] {
+  def stream(p: Null) = genPerfectTimes(dt)
 }
 
-case class ClockStop[A](source: Source[Time, A], tf: Timeframe) extends TakeWhile[Time, A] {
-  def f(p: A, x: Time) = x < tf
+case class ClockStop(source: Source[Time, Null], tf: Timeframe) extends TakeWhile[Time, Null] {
+  def f(p: Null, x: Time) = x < tf
 }
 
 case class Latency[A, B](source: SourceT[A, B], dt: Timestep) extends MapT[A, A, B] {
   def f(p: B, x: Timestamped[A]) = x.copy(dt = this.dt + dt) 
 }
 
-case class ClockVar[A](source: Source[Time, A], std: Timestep)
-    extends Map[Time, Time, A] {
-  def f(p: A, x: Time) = Gaussian(x, std)(Random).draw()
+case class ClockVar(source: Source[Time, Nothing], std: Timestep)
+    extends Map[Time, Time, Nothing] {
+  def f(p: Nothing, x: Time) = Gaussian(x, std)(Random).draw()
 }
 
 object Clock {
@@ -76,11 +78,15 @@ object Combine2 {
   }
 }
 
-trait SinkT[A, C] extends Sink[Timestamped[A], C] {
+trait SinkTimstamped[A, B] extends Sink[B] {
 
-  def fScheduled(p: C, x: Timestamped[A]): Time = {    
-    f(p, x)
-    x.time
-  }
+  def isEmpty: Boolean
+  def consume(p: B): Unit =
+    ???
+
+  def next: Unit
+  def current: Option[Timestamped[A]]
+  def f(x: Timestamped[A]): Unit
+
 
 }

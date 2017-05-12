@@ -1,4 +1,4 @@
-package spatial.fusion.gen
+package dawn.flow
 
 import io.circe.generic.JsonCodec
 import scala.collection.GenSeq
@@ -42,6 +42,11 @@ case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
     traj.keypoints.map { case (kp, tf) => {ts += tf; Timestamped(ts, kp) } }.toStream
   }
 }
+
+case class TrajectoryClock(dt: Timestep) extends Source[Time, Trajectory] {
+  def stream(p: Trajectory) = Clock(dt, p.tf).stream()  
+}
+
 
 @JsonCodec
 case class Vec3(x: Real, y: Real, z: Real)

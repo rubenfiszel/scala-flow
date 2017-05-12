@@ -1,4 +1,4 @@
-package spatial.fusion.gen
+package dawn.flow
 
 import io.circe._
 import io.circe.syntax._

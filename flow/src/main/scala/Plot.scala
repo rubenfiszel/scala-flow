@@ -1,14 +1,14 @@
-package spatial.fusion.gen
+package dawn.flow
 
 import breeze.plot._
 import breeze.linalg._
 
-object PlotData {
 
-  def createFigure[A: Data, B](p:B, s: Source[Timestamped[A], B]) = {
+case class Plot[A: Data, B](source: Source[Timestamped[A], B]) extends Sink[B] {
 
+  def consumeAll(p: B) = {
     val data = implicitly[Data[A]]
-    val st = s.stream(p)
+    val st = source.stream(p)
     val x = st.map(_.t)
     val y = st.map(x => data.toValues(x.v))
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
@@ -21,6 +21,7 @@ object PlotData {
       p.ylabel = "value"      
     }}
   }
-
-
 }
+
+
+
