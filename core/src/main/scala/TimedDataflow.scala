@@ -10,7 +10,7 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
 
 
 case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
-    extends Source[StreamT[A], B] {
+    extends Op2[StreamT[A], B, Time, Timestamped[A]] {
 
   def stream(p: B): Stream[StreamT[A]] = {
     var i  = 0
@@ -41,17 +41,9 @@ case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
 
 }
 
-case class Clock(dt: Timestep) extends Source[Time, Null] {
+case class Clock(dt: Timestep) extends Source[Time, Null] with Sourcable {
+  def sources = List()
   def stream(p: Null) = genPerfectTimes(dt)
-}
-
-object Clock {
-  def apply[A](dt: Timestep, tf: Timeframe): Source[Time, A] =
-    ClockStop(Clock(dt), tf)
-
-  def apply[A](dt: Timestep, tf: Timeframe, std: Timestep): Source[Time, A] =
-    ClockVar(ClockStop(Clock(dt), tf), std)
-
 }
 
 object ClockStop {
@@ -79,6 +71,7 @@ object Combine {
 }
 
 trait SinkTimestamped[A, B] extends Sink[B] {
+  this: Sourcable =>
 
   def isEmpty: Boolean
   def consume(p: B): Unit =

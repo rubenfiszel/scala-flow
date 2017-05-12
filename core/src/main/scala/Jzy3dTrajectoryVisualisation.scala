@@ -8,7 +8,7 @@ import org.jzy3d.maths.{Coord3d, Scale}
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class Jzy3dTrajectoryVisualisation(source1: SourceT[TrajectoryPoint, Trajectory], source2: SourceT[Keypoint, Trajectory]) extends Sink[Trajectory]{
+class Jzy3dTrajectoryVisualisation(val source1: SourceT[TrajectoryPoint, Trajectory], val source2: SourceT[Keypoint, Trajectory]) extends Sink[Trajectory] with Source2[Timestamped[TrajectoryPoint], Timestamped[Keypoint], Trajectory]{
 
   def consumeAll(traj: Trajectory) = {
 

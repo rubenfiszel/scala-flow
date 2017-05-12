@@ -4,7 +4,7 @@ import breeze.plot._
 import breeze.linalg._
 
 
-case class Plot[A: Data, B](source: Source[Timestamped[A], B]) extends Sink[B] {
+case class Plot[A: Data, B](source: Source[Timestamped[A], B]) extends Sink[B] with Source1[Timestamped[A], B]{
 
   def consumeAll(p: B) = {
     val data = implicitly[Data[A]]

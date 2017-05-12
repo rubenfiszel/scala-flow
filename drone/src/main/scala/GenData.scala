@@ -79,13 +79,12 @@ object GenData extends App {
 
   def figure() = {
     //The actual normal vector
-    val functorNV = points.mapT( (x: TrajectoryPoint) => x.nv)
+    val nvs = points.mapT( (x: TrajectoryPoint) => x.nv)
     //    This is to buff data every 0.3 sec
-    //    def reduce[A](x: Timestamped[A], y: Timestamped[A]) = y
-    //    val r = Reduce(Buffer(Clock(dt), functorNV), reduce[Vec3])
+    def red[A](x: Timestamped[A], y: Timestamped[A]) = y
 
-    //Those are the "true values", get the normal vector from the trajectory point
-    val r = functorNV
+    //Those are the "true values", get the normal vector from the trajectory point    
+    val r = nvs//.buffer(Clock(dt)).reduceF(red[Vec3] _)
 
     //The two plots
     val f1 = Plot(cf)
@@ -94,10 +93,17 @@ object GenData extends App {
     sinks ++= Seq(f1, f2)
   }
 
-  figure()
-  awt()
-  json()
+  def printSources() {
+    println("Print sources")
+    points.printRec
+  }
+
+//  figure()
+//  awt()
+//  json()
 
   val sim = Simulation(traj, sinks, SimpleScheduler)
   sim.run()
+
+  printSources()
 }

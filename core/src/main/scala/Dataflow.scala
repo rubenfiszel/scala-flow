@@ -1,19 +1,15 @@
 package dawn.flow
 
-object Source {
-  def apply[A, B](stream1: B => Stream[A]) = new Source[A, B] {
-    def stream(param1: B) = stream1(param1)
-  }
-}
+trait Source[A, B] extends Sourcable {
 
-trait Source[A, B] {
-
+  def name: String = "Default"
+  
   def stream(param: B): Stream[A]
 
   def fromStream[C](f: (B, Stream[A]) => Stream[C]) =
-    Source.apply((p: B) => f(p, stream(p)))
+    Op1.apply(this, (p: B) => f(p, stream(p)))
   def fromStream[C](f: (Stream[A]) => Stream[C]) =
-    Source.apply((p: B) => f(stream(p)))
+    Op1.apply(this, (p: B) => f(stream(p)))
 
   def cache() = Cache(this)
 
@@ -56,11 +52,41 @@ trait Source[A, B] {
 
   def combine[C, D](time: Source[Time, B], source2: SourceT[D, B])(implicit asC: A <:< Timestamped[C]) =
     Combine(time, this.map(asC), source2)
-
   
 }
 
-trait Sink[B] {
+trait Sourcable {
+  def sources: Seq[Source[_, _]]
+  def printRec: Unit = {
+    sources.foreach(println)
+    sources.foreach(_.printRec)
+  }
+}
+
+trait Source1[A, B] extends Sourcable {
+  def source: Source[A, B]
+  lazy val sources = List(source)
+}
+
+trait Source2[A, B, C] extends Sourcable {
+  def source1: Source[A, C]
+  def source2: Source[B, C]
+  lazy val sources = List(source1, source2)
+}
+
+trait Op1[A, B, C] extends Source[A, B] with Source1[C, B]
+
+object Op1 {
+  def apply[A, B, C](source1: Source[C, B], stream1: B => Stream[A]) = new Op1[A, B, C] {
+    def source = source1
+    def stream(param1: B) = stream1(param1)
+  }
+}
+
+
+trait Op2[A, B, C, D] extends Source[A, B] with Source2[C, D, B]
+
+trait Sink[B] extends Sourcable {
   def consumeAll(p: B): Unit
 }
 
@@ -71,9 +97,8 @@ trait SinkP[B] extends Sink[B] {
     while (!isEmpty) consume(p)
 }
 
-trait Sink1[A, B] extends SinkP[B] {
+trait Sink1[A, B] extends SinkP[B] with Source1[A, B]{
 
-  def source: Source[A, B]
   def f(p: B, x: A): Unit
 
   var iterator: Option[Iterator[A]] = None
@@ -92,10 +117,7 @@ trait Sink1[A, B] extends SinkP[B] {
   }
 }
 
-trait Sink2[A, B, C] extends SinkP[C] {
-
-  def source1: Source[A, C]
-  def source2: Source[B, C]
+trait Sink2[A, B, C] extends SinkP[C] with Source2[A, B, C]{
 
   def f1(p: C, x: A): Unit
   def f2(p: C, x: B): Unit
@@ -119,7 +141,7 @@ trait Sink2[A, B, C] extends SinkP[C] {
 }
 
 
-case class Cache[A, B](source: Source[A, B]) extends Source[A, B] {
+case class Cache[A, B](source: Source[A, B]) extends Op1[A, B, A] {
   var cStream: Option[Stream[A]] = None
   def stream(p: B) = {
     if (cStream.isEmpty) {

@@ -37,14 +37,16 @@ object TrajectoryPointPulse extends ((Trajectory, Time) => Timestamped[Trajector
 }
 
 case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
+  def sources = List()
   def stream(traj: Trajectory) = {
     var ts = 0.0
     traj.keypoints.map { case (kp, tf) => {ts += tf; Timestamped(ts, kp) } }.toStream
   }
 }
 
-case class TrajectoryClock(dt: Timestep) extends Source[Time, Trajectory] {
-  def stream(p: Trajectory) = Clock(dt, p.tf).stream()  
+case class TrajectoryClock(dt: Timestep) extends Op1[Time, Trajectory, Time]{
+  val source = Clock(dt)
+  def stream(p: Trajectory) = source.takeWhile(_ < p.tf).stream(null)  
 }
 
 
