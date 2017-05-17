@@ -1,8 +1,7 @@
 package dawn
 
 import breeze.stats.distributions._
-
-//import cats.free.Free
+import breeze.linalg._
 
 package object flow {
 
@@ -62,6 +61,13 @@ package object flow {
   implicit object Vec3Data extends Data[Vec3]{
     def toValues(x: Vec3) = x.toArray.toSeq
   }
-  
 
+
+  implicit def toVec3(x: DenseVector[Real]): Vec3 = Vec3(x)
+
+  def debug[A](x: A) = {
+    println(x)
+    x
+  }
+  
 }

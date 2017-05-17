@@ -1,16 +1,16 @@
-package dawn.flow.drone
+package dawn.flow.trajectory
 
 import dawn.flow._
-import spire.math.{ Real => _, _ => _ }
+import spire.math.{Real => _, _ => _}
 import spire.implicits._
-import breeze.linalg.{ norm, normalize, cross}
+import breeze.linalg.{norm, normalize, cross}
 
 //Author: Ruben Fiszel <ruben.fiszel@epfl.ch>
 //Inspired from RapidTrajectory from Mark W. Mueller <mwm@mwm.im>
 
 case class SingleAxisQuadTrajectory(init: SingleAxisInit,
-                                goal: SingleAxisGoal,
-                                tf: Timeframe) {
+                                    goal: SingleAxisGoal,
+                                    tf: Timeframe) {
 
   val pf = goal.p.getOrElse(0.0)
   val vf = goal.v.getOrElse(0.0)
@@ -122,19 +122,18 @@ case class SingleAxisQuadTrajectory(init: SingleAxisInit,
 
 }
 
-
-
 sealed trait Feasibility
-case object ThrustTooHigh     extends Feasibility
-case object ThrustTooLow      extends Feasibility
+case object ThrustTooHigh  extends Feasibility
+case object ThrustTooLow   extends Feasibility
 case object Indeterminable extends Feasibility
 case object Feasible       extends Feasibility
 
 case class QuadTrajectorySection(init: Init = Init.zero,
-                             goal: Goal = Keypoint.one,
-                             tf: Timeframe = 1.0,
-                             g: Vec3 = Vec3(0, 0, 9.81)) {
-  lazy val axis = (0 to 2).map(i => SingleAxisQuadTrajectory(init(i), goal(i), tf))
+                                 goal: Keypoint = Keypoint.one,
+                                 tf: Timeframe = 1.0,
+                                 g: Vec3 = Vec3(0, 0, -9.81)) {
+  lazy val axis =
+    (0 to 2).map(i => SingleAxisQuadTrajectory(init(i), goal(i), tf))
 
   // Return the trajectory's 3D jerk value at time `t`.
   def getJerk(t: Time) =
@@ -150,27 +149,18 @@ case class QuadTrajectorySection(init: Init = Init.zero,
     Vec3(axis.map(_.getPosition(t)))
 
   def getNormalVector(t: Time) =
-    Vec3(normalize(getAcceleration(t) - g).toArray)
+    Vec3(normalize(getAcceleration(t) - g))
 
   def getThrust(t: Time): Thrust =
     norm((getAcceleration(t) - g))
 
-  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 = {
-    val n0 = Vec3(getNormalVector(t).toArray)
-    val n1 = Vec3(getNormalVector(t + dt).toArray)
+//  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 = 
+//    Trajectory.bodyRate(Vec3(getNormalVector(t)),
+//      Vec3(getNormalVector(t + dt)), dt)
 
-    //direction of omega, in inertial axes
-    val crossProd = cross(n0, n1)
-    if (norm(crossProd) > 1e-6) {
-      val sc = acos(n0.dot(n1)) / dt
-      Vec3((normalize(crossProd) :* sc).toArray)
-    } else
-      Vec3(0, 0, 0)
-  }
 
   lazy val cost =
     axis.map(_.cost).sum
-
 
   def isFeasible(fminAllowed: Thrust = 5.0,
                  fmaxAllowed: Thrust = 20.0,
@@ -245,14 +235,15 @@ case class QuadTrajectorySection(init: Init = Init.zero,
 }
 
 case class QuadTrajectory(init: Init,
-                      keypoints: List[(Keypoint, Timeframe)],
-                      g: Vec3) extends Trajectory {
+                          keypoints: List[(Keypoint, Timeframe)],
+                          gravity: Vec3)
+    extends Trajectory {
 
   lazy val combined = {
     var initS = init
     keypoints.map {
       case (kp, tf) => {
-        val section = QuadTrajectorySection(initS, kp, tf, g)
+        val section = QuadTrajectorySection(initS, kp, tf, gravity)
         initS = Init(section.getPosition(tf),
                      section.getVelocity(tf),
                      section.getAcceleration(tf))
@@ -265,15 +256,15 @@ case class QuadTrajectory(init: Init,
     keypoints.map(_._2).sum
 
   def getSection(t: Time) = {
-    var nt      = t
+    var nt     = t
     var kps    = keypoints
     var offset = 0
     while (!kps.isEmpty && nt >= kps.head._2) {
       nt -= kps.head._2
-      kps = kps.tail      
+      kps = kps.tail
       offset += 1
     }
-    (combined(min(offset, combined.length-1)), nt)
+    (combined(min(offset, combined.length - 1)), nt)
   }
 
   def get[A](f: (QuadTrajectorySection, Time) => A, t: Time): A = {
@@ -295,21 +286,12 @@ case class QuadTrajectory(init: Init,
 
   def getNormalVector(t: Time): NormalVector =
     get(_.getNormalVector(_), t)
-
+  
   def getThrust(t: Time): Thrust =
     get(_.getThrust(_), t)
 
-  def getBodyRates(t: Time, dt: Timestep = 1e-3): BodyRates =
-    get(_.getBodyRates(_, dt), t)
-
-  def getPoint(t: Time, dt: Timestep = 1e-3): TrajectoryPoint =
-    TrajectoryPoint(getPosition(t),
-                    getVelocity(t),
-                    getAcceleration(t),
-                    getJerk(t),
-                    getNormalVector(t),
-                    getThrust(t),
-                    getBodyRates(t, dt))
+ 
+  
 
   lazy val cost =
     combined.map(_.cost).sum
@@ -332,14 +314,13 @@ case class QuadTrajectory(init: Init,
       val (s, e) = findInfeasible().get
       println(s"Infeasible on section $s because $e")
     }
-      
 
 }
 
 object QuadTrajectory {
-  val EARTH_GRAVITY = Vec3(0, 0, 9.81)
+  val EARTH_GRAVITY = Vec3(0, 0, -9.81)
   def apply(init: Init = Init.zero,
-            goal: Goal = Keypoint.one,
+            goal: Keypoint = Keypoint.one,
             tf: Timeframe = 1.0,
             g: Vec3 = EARTH_GRAVITY): QuadTrajectory =
     QuadTrajectory(init, List((goal, tf)), g)

@@ -1,8 +1,11 @@
-package dawn.flow.drone
+package dawn.flow.trajectory
 
 import dawn.flow._
+
 import breeze.linalg._
 import breeze.stats.distributions._
+import spire.math.{Real => _, _ => _}
+import spire.implicits._
 
 object GenData extends App {
 
@@ -40,21 +43,23 @@ object GenData extends App {
   //We cache it to showcase Cache that avoids recomputing points each time
   val clock1 = TrajectoryClock(dt)
   val trajPP = clock1.map(TrajectoryPointPulse)
-  val points = trajPP.cache()
+  val points = trajPP //.cache()
 
   //******* Filter ********
   //Rate at which sensor geenerate data
-  val fdt = 0.3
 
+  val divider = 1
   //The NormalVector through the ComplimentaryFilter
 
   //filter parameter
-  val cov   = DenseMatrix.eye[Real](3)
-  val alpha = 0.9
+  val cov   = DenseMatrix.eye[Real](3) * 0.000001
+  val alpha = 0.05
 
-  val clock2 = TrajectoryClock(fdt)
-  val imu = clock2.map(IMU(Accelerometer(cov), Gyroscope(cov, fdt)))
-  val cf = imu.map(ComplimentaryFilter(alpha, fdt))
+  val clock2     = clock1 //.divider(divider)
+  val clockNoise = ClockVar(clock2, 0.001)
+  val imu        = clock2.map(IMU(Accelerometer(cov), Gyroscope(cov, dt * divider)))
+  val cf =
+    imu.map(OrientationComplimentaryFilter(alpha, dt * divider)).latency(0.0)
 
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)
@@ -62,44 +67,42 @@ object GenData extends App {
   var sinks: Seq[Sink[Trajectory]] = Seq()
 
   def awt() = {
-    val vis = new Jzy3dTrajectoryVisualisation(points, keypointsS)
+    val vis = new Jzy3dVisualisation(points, keypointsS)
     sinks ++= Seq(vis)
   }
 
   def printJson() = {
     //Map to json
-    val jsonP  = JsonExport(points)
+//    val jsonP  = JsonExport(points)
     val jsonCF = JsonExport(cf)
     //Print json
-    val printP  = PrintSink(jsonP)
+//    val printP  = PrintSink(jsonP)
     val printCF = PrintSink(jsonCF)
 
-    sinks ++= Seq(printP, printCF)
+    sinks ++= Seq(printCF)
   }
 
   def figure() = {
     //The actual normal vector
-    val nvs = points.mapT( (x: TrajectoryPoint) => x.nv)
+    val nvs = points.mapT(NamedFunction1((x: TrajectoryPoint) => x.q, "toNV"))
     //    This is to buff data every 0.3 sec
-    def red[A](x: Timestamped[A], y: Timestamped[A]) = y
+//    def red[A](x: Timestamped[A], y: Timestamped[A]) = y
 
-    //Those are the "true values", get the normal vector from the trajectory point    
-    val r = nvs//.buffer(Clock(dt)).reduceF(red[Vec3] _)
+    //Those are the "true values", get the normal vector from the trajectory point
+    val r = nvs //.buffer(Clock(dt)).reduceF(red[Vec3] _)
 
     //The two plots
-    val f1 = Plot(cf)
-    val f2 = Plot(r)
+    val plot = Plot2(r, cf)
 
-    sinks ++= Seq(f1, f2)
+    sinks ++= Seq(plot)
   }
 
-
-//  figure()
-  awt()
+  figure()
+//  awt()
 //  printJson()
 
   val sim = Simulation(traj, sinks, SimpleScheduler)
   sim.run()
 
-  println(Sourcable.graph(sinks))
+//  println(Sourcable.graph(sinks))
 }

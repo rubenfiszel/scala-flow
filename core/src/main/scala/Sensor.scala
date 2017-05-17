@@ -3,52 +3,30 @@ package dawn.flow
 import breeze.linalg._
 import breeze.stats.distributions._
 
+object Rand {
+  def gaussian(v: Vec3, cov: DenseMatrix[Real]) =
+    Vec3(MultivariateGaussian(v, cov)(Random).draw().toArray)
+}
+
+
 trait Sensor[A, M] extends ((M, Time) => Timestamped[A]) {
 
   override def toString = getClass.getSimpleName
-  
+
   def generate(model: M, t: Time): A
 
   def apply(p: M, t: Time) =
     Timestamped(t, generate(p, t))
 }
 
-case class Accelerometer(cov: DenseMatrix[Real]) extends Sensor[Acceleration, Trajectory] {
+trait VectorSensor[M] extends Sensor[Vec3, M] {
 
-  def generate(traj: Trajectory, t: Time) = {
-    Vec3(
-      MultivariateGaussian(traj.getAcceleration(t), cov)(Random)
-        .draw()
-        .toArray)
-  }
+  def cov: DenseMatrix[Real]
 
-}
+  def genVector(p: M, t: Time): Vec3
 
-case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)
-    extends Sensor[BodyRates, Trajectory] {
-
-  def generate(traj: Trajectory, t: Time) = {
-    Vec3(
-      MultivariateGaussian(traj.getBodyRates(t, dt), cov)(Random)
-        .draw()
-        .toArray)
-  }
+  def generate(p: M, t: Time) =
+    Rand.gaussian(genVector(p, t), cov)
 
 }
 
-case class Vicon(cov: DenseMatrix[Real]) extends Sensor[Position, Trajectory] {
-
-  def generate(traj: Trajectory, t: Time) = {
-    Vec3(MultivariateGaussian(traj.getPosition(t), cov)(Random).draw().toArray)
-  }
-
-}
-
-case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M]) extends Sensor[(A,B), M]{
-  def generate(model: M, t: Time) =
-    (sensor1.generate(model, t), sensor2.generate(model, t))
-}
-
-object IMU {
-  def apply(acc: Accelerometer, gyro: Gyroscope) = Sensor2(acc, gyro)
-}

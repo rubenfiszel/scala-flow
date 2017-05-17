@@ -7,8 +7,7 @@ case class NamedFunction1[A, B](f: A => B, name: String) extends (A => B) {
   def apply(x: A)       = f(x)
 }
 
-case class NamedFunction2[A, B, C](f: (A, B) => C, name: String)
-    extends ((A, B) => C) {
+case class NamedFunction2[A, B, C](f: (A, B) => C, name: String) extends ((A, B) => C) {
   override def toString = name
   def apply(x: A, y: B) = f(x, y)
 }
@@ -61,12 +60,12 @@ trait Source[A, B] extends Sourcable { parent =>
   def mapT[C, D](f: (B, C) => D)(implicit asC: A <:< Timestamped[C]) =
     silentMap(asC).map(
       NamedFunction2((p: B, x: Timestamped[C]) => x.copy(v = f(p, x.v)),
-                     "MapT2 " + f.toString))
+                     "Functor2 " + f.toString))
 
   def mapT[C, D](f: (C) => D)(implicit asC: A <:< Timestamped[C]) =
     silentMap(asC).map(
       NamedFunction1((x: Timestamped[C]) => x.copy(v = f(x.v)),
-                     "MapT " + f.toString))
+                     "FunctorT " + f.toString))
 
   def flatMap[C](f: (A) => Stream[C]) =
     fromStream(_.flatMap(f), "FlatMap " + f.toString)
@@ -108,11 +107,16 @@ trait Sourcable { self =>
 
 object Sourcable {
 
-  def graph(s: Seq[Sourcable], g: Graph[Sourcable] = Graph(Set(), List())): Graph[Sourcable] = {
+  def graph(s: Seq[Sourcable], g: Graph[Any] = Graph(Set(), List())): Graph[Any] = {
     s.foldLeft(g.copy(
-        vertices = g.vertices ++ s.toSet ++ s.flatMap(_.sources),
+        vertices = g.vertices ++ s.toSet ++ s.flatMap(_.sources) ++ s.flatMap(addParams).toSet,
         edges  = g.edges ++ s.toList.flatMap(x => x.sources.map(y => (y, x)))
     ))((acc, pos) => graph(pos.sources, acc))
+  }
+
+  def addParams(s: Sourcable): Set[Any] = s match {
+    case x: Product => x.productIterator.toSet
+    case _ => Set()
   }
 }
 

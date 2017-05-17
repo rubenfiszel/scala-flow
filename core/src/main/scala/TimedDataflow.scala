@@ -43,6 +43,7 @@ case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
 }
 
 case class Clock(dt: Timestep) extends Source[Time, Null]  {
+  override def toString = "Clock " + dt 
   def sources = List()
   def stream(p: Null) = genPerfectTimes(dt)
 }
@@ -58,8 +59,8 @@ object Latency {
 }
 
 object ClockVar {
-  def apply(source: Source[Time, Null], std: Timestep) =
-    source.map(Gaussian(_, std)(Random).draw())
+  def apply[A](source: Source[Time, A], std: Timestep) =
+    source.map(NamedFunction1((x: Time) => Gaussian(x, std)(Random).draw(), "ClockVar " +std))
 }
 
 object Combine {

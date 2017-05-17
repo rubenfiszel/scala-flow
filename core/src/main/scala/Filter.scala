@@ -1,24 +1,59 @@
 package dawn.flow
 
-trait SignalFilter[A, B, C] extends ((C, Timestamped[A]) => Timestamped[B]) {
+import spire.math.{Real => _, _ => _}
+import spire.implicits._
+import spire.algebra.Field
+import breeze.linalg.{norm, normalize, cross}
+
+trait SignalFilter[A, B, C] extends ((B, Timestamped[A]) => Timestamped[C]) {
 
   override def toString = getClass.getSimpleName
   
-  def filter(p: C, x: Timestamped[A]): B
+  def filter(p: B, x: Timestamped[A]): C
 
-  def apply(p: C, x: Timestamped[A]) = Timestamped(x.t, filter(p, x))
+  def apply(p: B, x: Timestamped[A]) = Timestamped(x.t, filter(p, x))
 }
 
 
-case class ComplimentaryFilter(alpha: Real, dt: Timeframe)
-    extends SignalFilter[(Acceleration, BodyRates), NormalVector, Trajectory] {
 
-  var angle: Vec3 = Vec3(0, 0, 0)
+//https://robotics.stackexchange.com/questions/1717/how-to-determine-the-parameter-of-a-complementary-filter
+case class ComplementaryFilter[A: Field,B](source1: Source[A, B], source2: Source[A, B], init: A, alpha: Real)
+    extends Block2[A, B, A, A] {
 
-  def filter(p: Trajectory, x: Timestamped[(Acceleration, BodyRates)]) = {
-    val (acc, gyro) = x.v
-    angle = Vec3(((angle + (gyro :* dt) :* alpha) + (acc :* alpha)).toArray)
-    angle
+  val lpf = LowPassFilter(source1, init, alpha)
+  val hpf = HighPassFilter(source2, init, alpha)
+  val zip = lpf.zip(hpf)
+  val r = zip.map(x => alpha*x._1 + (1-alpha)*x._2)
+  def stream(p: B) = r.stream(p)
+}
+
+case class LowPassFilter[A: Field, B](source: Source[A,B], init: A, alpha: Real) extends Op1[A, B, A] {
+  var ynm: A = init
+
+  //y[n]=(1-alpha).x[n]+alpha.y[n-1]
+  def f(xn: A) = {
+    val yn = (1-alpha)*xn + alpha*ynm
+    ynm = yn
+    yn
   }
+
+  def stream(p: B): Stream[A] = source.stream(p).map(f)
+
+}
+
+case class HighPassFilter[A: Field, B](source: Source[A,B], init: A, alpha: Real) extends Op1[A, B, A] {
+
+  var xnm: A = init
+  var ynm: A = init  
+
+  //y[n]=(1-alpha)y[n-1]+(1-alpha)(x[n]-x[n-1])  
+  def f(xn: A) = {
+    val yn = (1-alpha)*ynm + alpha*(xn-xnm)
+    xnm = xn
+    ynm = yn
+    yn
+  }
+
+  def stream(p: B): Stream[A] = source.stream(p).map(f)
 
 }
