@@ -8,7 +8,6 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
   def time = t + dt
 }
 
-
 case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
     extends Op2[StreamT[A], B, Time, Timestamped[A]] {
 
@@ -72,15 +71,17 @@ object Combine {
   }
 }
 
-trait SinkTimestamped[A, B] extends Sink[B] {
-  this: Sourcable =>
+case class Cache[A, B](source: Source[A, B]) extends Op1[A, B, A] {
+  var cStream: Option[Stream[A]] = None
 
-  def isEmpty: Boolean
-  def consume(p: B): Unit =
-    ???
+  override def resetCache() = {
+    cStream = None
+  }
 
-  def next: Unit
-  def current: Option[Timestamped[A]]
-  def f(x: Timestamped[A]): Unit
-
+  def stream(p: B) = {
+    if (cStream.isEmpty) {
+      cStream = Some(source.stream(p))
+    }
+    cStream.get
+  }
 }

@@ -69,5 +69,11 @@ package object flow {
     println(x)
     x
   }
-  
+
+  implicit def toTimedSource[A,B](s: Source[Timestamped[A],B]): TimedSource[A, B] =
+    new TimedSource(s)
+
+  implicit def toStreamSource[A,B](s: Source[Stream[A],B]): StreamSource[A, B] =
+    new StreamSource(s)
+
 }

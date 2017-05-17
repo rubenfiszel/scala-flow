@@ -22,3 +22,5 @@ case class OrientationComplimentaryFilter(alpha: Real, dt: Timeframe)
   }
 
 }
+
+//case class OComplementaryFilter(alpha: Real, dt: Timeframe) extends Block2[Quaternion[Real], Trajectory, Accelerometer, BodyRates] {}

@@ -1,6 +1,13 @@
-- Organise things into blocks { def in, def out }
-- Make a webapp with plots
+- Organise things into blocks [Done ?]
 - Implement it for webcam tians
 
+- feedback node
+- Simulation with control is just a feedback loop
+- separate implicit ops
 
-- add contributions Internal type
+- generate spatial code ?
+
+
+- Make a webapp with plots
+
+- add contributions to master thesis Internal type

@@ -55,11 +55,13 @@ object GenData extends App {
   val cov   = DenseMatrix.eye[Real](3) * 0.000001
   val alpha = 0.05
 
-  val clock2     = clock1 //.divider(divider)
+  val clock2     = clock1//.divider(divider).latency(0.03)
   val clockNoise = ClockVar(clock2, 0.001)
   val imu        = clock2.map(IMU(Accelerometer(cov), Gyroscope(cov, dt * divider)))
   val cf =
     imu.map(OrientationComplimentaryFilter(alpha, dt * divider)).latency(0.0)
+
+  val qs = points.mapT(NamedFunction1((x: TrajectoryPoint) => x.q, "toQ"))
 
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)
@@ -83,21 +85,20 @@ object GenData extends App {
   }
 
   def figure() = {
-    //The actual normal vector
-    val nvs = points.mapT(NamedFunction1((x: TrajectoryPoint) => x.q, "toNV"))
-    //    This is to buff data every 0.3 sec
-//    def red[A](x: Timestamped[A], y: Timestamped[A]) = y
 
-    //Those are the "true values", get the normal vector from the trajectory point
-    val r = nvs //.buffer(Clock(dt)).reduceF(red[Vec3] _)
-
-    //The two plots
-    val plot = Plot2(r, cf)
+    val plot = Plot2(cf, qs)
 
     sinks ++= Seq(plot)
   }
 
-  figure()
+  def testTS() = {
+    val test = TestTS(cf, qs, 1000)
+    sinks ++= Seq(test)
+  }
+
+
+  testTS()
+//  figure()
 //  awt()
 //  printJson()
 
