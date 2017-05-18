@@ -15,12 +15,6 @@ trait Source[A, B] extends Sourcable { parent =>
                         name: String) =
     Op2.apply(this, s2, (p: B) => f(p, stream(p)), name)
 
-  def cache() = Cache(this)
-
-  //Should reset cache and propage the message
-  //such that you can run the simulation and get new data
-  //overriden only by cache for convenience
-  def resetCache() = ()
 
   def filter(b: (A) => Boolean) =
     fromStream(_.filter(b), "Filter " + b.toString)
@@ -104,3 +98,6 @@ case class NamedFunction2[A, B, C](f: (A, B) => C, name: String) extends ((A, B)
 }
 
 
+trait Resettable {
+  def reset(): Unit
+}

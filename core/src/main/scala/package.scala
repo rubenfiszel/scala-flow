@@ -34,6 +34,8 @@ package object flow {
     
   type SourceT[A, B] = Source[Timestamped[A], B]
   type StreamT[A] = Stream[Timestamped[A]]
+  type Op1T[A, B, C] = Op1[Timestamped[A], B, Timestamped[C]]
+  type Op2T[A, B, C, D] = Op2[Timestamped[A], B, Timestamped[C], Timestamped[D]]  
   type Stream[A] = scala.Stream[A]
 
   implicit def fromNothing[A, B](s: Source[A, Null]) = new Source[A, B] {
@@ -70,10 +72,16 @@ package object flow {
     x
   }
 
-  implicit def toTimedSource[A,B](s: Source[Timestamped[A],B]): TimedSource[A, B] =
-    new TimedSource(s)
+  implicit def toTimestampedSource[A,B](s: Source[Timestamped[A],B]): TimestampedSource[A, B] =
+    new TimestampedSource(s)
 
+  implicit def toTimeSource[B](s: Source[Time, B]): TimeSource[B] =
+    new TimeSource(s)
+  
   implicit def toStreamSource[A,B](s: Source[Stream[A],B]): StreamSource[A, B] =
     new StreamSource(s)
 
+  implicit def toStdLibSource[A,B](s: Source[A,B]): StdLibSource[A, B] =
+    new StdLibSource(s)
+  
 }

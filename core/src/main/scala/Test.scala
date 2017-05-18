@@ -29,8 +29,8 @@ case class TestTS[A: Data, B](source1: Source[Timestamped[A], B],
     val (datas, minD, maxD) = toInterpolation(datasA)
     val (truth, minT, maxT) = toInterpolation(truthA)
 
-    val minG = min(minD, maxT)
-    val maxG = max(maxD, maxT)
+    val minG = max(minD, maxT)
+    val maxG = min(maxD, maxT)
 
     val tf = maxG - minG
 

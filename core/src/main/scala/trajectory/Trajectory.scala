@@ -65,17 +65,24 @@ trait Trajectory {
 
   //The quaternion is not unique but we choose the "shortest arc".
   def getOrientationQuaternion(t: Time) = {
-    require(t < tf)
+    val rt =
+      if (t > tf) {
+        println("[Warning] time over tf")
+        tf
+      }
+      else
+        t
+    
     Trajectory.getQuaternion(
       Vec3(0, 0, 1),
-      getNormalVector(t)
+      getNormalVector(rt)
     )
   }
 
   //avoid end of trajectory sampling annoyance
   //by "replaying" the last possible sample
   def lastPossibleDelta(t: Time, dt: Timestep) =
-      if ((t + 1.1*dt) > tf)
+      if ((t + dt) >= tf)
         tf - 1.1*dt
       else
         t
@@ -104,11 +111,8 @@ trait Trajectory {
 
 }
 
-object TrajectoryPointPulse
-    extends ((Trajectory, Time) => Timestamped[TrajectoryPoint]) {
-  override def toString                = getClass.getSimpleName
-  def apply(traj: Trajectory, t: Time) = Timestamped(t, traj.getPoint(t))
-}
+object TrajectoryPointPulse extends NamedFunction2((traj: Trajectory, t: Time) => Timestamped(t, traj.getPoint(t)), "toTrajPoint")
+
 
 case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
   def sources = List()
@@ -120,7 +124,7 @@ case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
 
 case class TrajectoryClock(dt: Timestep) extends Block[Time, Trajectory, Time] {
   val source                = Clock(dt)
-  def stream(p: Trajectory) = source.takeWhile(_ < p.tf).stream(null)
+  def stream(p: Trajectory) = source.stop(p.tf).stream(null)
 }
 
 

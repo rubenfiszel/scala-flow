@@ -7,6 +7,7 @@ import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
+
 object GenData extends App {
 
   //****** Model ******
@@ -41,9 +42,9 @@ object GenData extends App {
 
   val keypointsS = KeypointSource
   //We cache it to showcase Cache that avoids recomputing points each time
-  val clock1 = TrajectoryClock(dt)
+  val clock1 = TrajectoryClock(dt).cache()
   val trajPP = clock1.map(TrajectoryPointPulse)
-  val points = trajPP //.cache()
+  val points = trajPP
 
   //******* Filter ********
   //Rate at which sensor geenerate data
@@ -55,13 +56,16 @@ object GenData extends App {
   val cov   = DenseMatrix.eye[Real](3) * 0.000001
   val alpha = 0.05
 
-  val clock2     = clock1//.divider(divider).latency(0.03)
-  val clockNoise = ClockVar(clock2, 0.001)
-  val imu        = clock2.map(IMU(Accelerometer(cov), Gyroscope(cov, dt * divider)))
-  val cf =
-    imu.map(OrientationComplimentaryFilter(alpha, dt * divider)).latency(0.0)
+  val clock2     = clock1//.divider(divider)
+  val clockNoise = clock2//.latencyVariance(0.01)
+  val imu        = clockNoise.map(IMU(Accelerometer(cov), Gyroscope(cov, dt * divider)))//.latency(0.05)
 
-  val qs = points.mapT(NamedFunction1((x: TrajectoryPoint) => x.q, "toQ"))
+  lazy val cf: Source[Timestamped[Quaternion[Real]], Trajectory] = OrientationComplimentaryFilterBuffered(imu, buffered, alpha, dt * divider).cache()//.latency(0.0)
+  lazy val buffered = Buffer(() => cf, Timestamped(0.0, Quaternion(1.0, 0, 0, 0)))
+//    OrientationComplimentaryFilter(imu, alpha, dt * divider).cache()//.latency(0.0)
+
+
+  val qs = points.mapT(NamedFunction1((x: TrajectoryPoint) => x.q, "toQ")).cache()
 
 //    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
 //(keypoints, points, datas)
@@ -96,14 +100,16 @@ object GenData extends App {
     sinks ++= Seq(test)
   }
 
+  testTS()  
+  figure()
 
-  testTS()
-//  figure()
 //  awt()
 //  printJson()
+
+  Sourcable.drawGraph(sinks)
 
   val sim = Simulation(traj, sinks, SimpleScheduler)
   sim.run()
 
-//  println(Sourcable.graph(sinks))
+
 }

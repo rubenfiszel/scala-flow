@@ -5,16 +5,6 @@ import spire.implicits._
 import spire.algebra.Field
 import breeze.linalg.{norm, normalize, cross}
 
-trait SignalFilter[A, B, C] extends ((B, Timestamped[A]) => Timestamped[C]) {
-
-  override def toString = getClass.getSimpleName
-  
-  def filter(p: B, x: Timestamped[A]): C
-
-  def apply(p: B, x: Timestamped[A]) = Timestamped(x.t, filter(p, x))
-}
-
-
 
 //https://robotics.stackexchange.com/questions/1717/how-to-determine-the-parameter-of-a-complementary-filter
 case class ComplementaryFilter[A: Field,B](source1: Source[A, B], source2: Source[A, B], init: A, alpha: Real)

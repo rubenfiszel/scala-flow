@@ -1,44 +1,11 @@
 package dawn.flow
 
-import breeze.stats.distributions._
-import io.circe.generic.JsonCodec
 
-@JsonCodec
-case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
-  def time = t + dt
-}
+class StdLibSource[A, B](source: Source[A, B]) {
 
-case class Buffer[A, B](source1: Source[Time, B], source2: SourceT[A, B])
-    extends Op2[StreamT[A], B, Time, Timestamped[A]] {
+  def cache() = Cache(source)
 
-
-  def stream(p: B): Stream[StreamT[A]] = {
-    var i  = 0
-    var s1 = source1.stream(p)
-    var s2 = source2.stream(p)
-
-    def streamTail(): Stream[StreamT[A]] = {
-      s1 = s1.tail
-      if (s2.isEmpty)
-        Stream()
-      else if (s1.isEmpty)
-        Stream(s2)
-      else
-        rec()
-    }
-
-    def streamT(stop: Time): StreamT[A] = {
-      val (pre, su) = s2.span(_.t < stop)
-      s2 = su
-      pre
-    }
-
-    def rec(): Stream[StreamT[A]] =
-      streamT(s1.head) #:: streamTail()
-
-    rec()
-  }
-
+  def buffer(init: A) = Buffer(() => source, init)
 }
 
 case class Clock(dt: Timestep) extends Source[Time, Null]  {
@@ -47,34 +14,20 @@ case class Clock(dt: Timestep) extends Source[Time, Null]  {
   def stream(p: Null) = genPerfectTimes(dt)
 }
 
-object ClockStop {
-  def apply(source: Source[Time, Null], tf: Timeframe) =
-    source.takeWhile(_ < tf)
+case class Buffer[A,B](source1: () =>Source[A,B], init: A) extends Op1[A, B, A]  {
+
+  lazy val source: Source[A,B] = source1()
+  override lazy val sources = List(source)  
+  def stream(p: B) = init #:: source.stream(p)
+
 }
 
-object Latency {
-  def apply[A, B](source: SourceT[A, B], dt1: Timestep) =
-    source.latency(dt1)
-}
 
-object ClockVar {
-  def apply[A](source: Source[Time, A], std: Timestep) =
-    source.map(NamedFunction1((x: Time) => Gaussian(x, std)(Random).draw(), "ClockVar " +std))
-}
-
-object Combine {
-  def apply[A, B, C](
-      source1: Source[Time, C],
-      source2: SourceT[A, C],
-      source3: SourceT[B, C]): Source[(StreamT[A], StreamT[B]), C] = {
-    Buffer(source1, source2).zip(Buffer(source1, source3))
-  }
-}
-
-case class Cache[A, B](source: Source[A, B]) extends Op1[A, B, A] {
+case class Cache[A, B](source: Source[A, B]) extends Op1[A, B, A] with Resettable {
   var cStream: Option[Stream[A]] = None
 
-  override def resetCache() = {
+  def reset() = {
+    println("Cache reset")
     cStream = None
   }
 

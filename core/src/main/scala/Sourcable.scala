@@ -1,29 +1,45 @@
 package dawn.flow
 
 import com.github.mdr.ascii.graph._
+import scala.reflect._
+import com.github.mdr.ascii.layout.GraphLayout
 
 trait Sourcable { self =>
   def sources: Seq[Source[_, _]]
-
-  def reset(): Unit = {
-    sources.foreach(_.resetCache())
-    sources.foreach(_.reset())
-  }
 
   override def toString = getClass.getSimpleName
 }
 
 object Sourcable {
 
-  def graph(s: Seq[Sourcable], g: Graph[Any] = Graph(Set(), List())): Graph[Any] = {
-    s.foldLeft(g.copy(
-        vertices = g.vertices ++ s.toSet ++ s.flatMap(_.sources) ++ s.flatMap(addParams).toSet,
-        edges  = g.edges ++ s.toList.flatMap(x => x.sources.map(y => (y, x)))
-    ))((acc, pos) => graph(pos.sources, acc))
+  def graph(s: Seq[Sourcable],
+    g: Graph[Sourcable] = Graph(Set(), List())): Graph[Sourcable] = {
+    val nvertices = g.vertices ++ s.toSet ++ s.flatMap(_.sources)
+    val nedges = (g.edges ++ s.toList.flatMap(x => x.sources.map(y => (y, x)))).distinct
+    val init = g.copy(
+        vertices = nvertices,
+        edges = nedges)
+    s.foldLeft(init)((acc, pos) => graph(pos.sources.filter(!g.vertices.contains(_)), acc))
+  }
+
+  def drawGraph(s: Seq[Sourcable]) =
+    println(GraphLayout.renderGraph(graph(s)))
+
+  def collectResettable(s: Seq[Sourcable]) = {
+    graph(s).vertices
+      .filter {
+        _ match {
+          case a: Resettable =>
+            true
+          case _ =>
+            false
+        }
+      }
+      .map(_.asInstanceOf[Resettable])
   }
 
   def addParams(s: Sourcable): Set[Any] = s match {
     case x: Product => x.productIterator.toSet
-    case _ => Set()
+    case _          => Set()
   }
 }

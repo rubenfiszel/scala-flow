@@ -37,7 +37,7 @@ case class Plot2[A: Data, B](source1: Source[Timestamped[A], B], source2: Source
     val y2 = st2.map(x => data.toValues(x.v))
 
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
-    val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))    
+    val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))
 
     val f = new Figure("fig", ys.length, 1)
     val titles =
