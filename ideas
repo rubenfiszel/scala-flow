@@ -1,13 +1,15 @@
 - Organise things into blocks [Done ?]
 - Implement it for webcam tians
 
-- feedback node
+- solve Field and breeze integration
+- Implement kalman filter
 - Simulation with control is just a feedback loop
-- separate implicit ops
 
 - generate spatial code ?
-- collect function for reset
 
 - Make a webapp with plots
 
+
+//THESIS
 - add contributions to master thesis Internal type
+- add fake struct default argument

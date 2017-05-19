@@ -10,20 +10,28 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
 
 class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
 
-  def mapT[C](f: (B, A) => C) =
+  def mapT[C](f: (B, A) => C, name: String): SourceT[C, B] =
     source.map(
-      NamedFunction2((p: B, x: Timestamped[A]) => x.copy(v = f(p, x.v)),
-                     "Functor2 " + f.toString))
+      (p: B, x: Timestamped[A]) => x.copy(v = f(p, x.v)),
+      "Functor2 " + getStrOrElse(name, f.toString))
+  def mapT[C](f: (B, A) => C): SourceT[C, B] =
+    mapT(f, "")
+  def mapT[C](f: (A) => C, name: String): SourceT[C, B] =
+    source.map(
+      (x: Timestamped[A]) => x.copy(v = f(x.v)),
+      "FunctorT " + getStrOrElse(name, f.toString))
+  def mapT[C](f: (A) => C): SourceT[C, B] =
+    mapT(f, "")    
 
-  def mapT[C](f: (A) => C) =
-    source.map(
-      NamedFunction1((x: Timestamped[A]) => x.copy(v = f(x.v)),
-                     "FunctorT " + f.toString))
+
+  def zipT[C](s2: SourceT[C, B]) =
+    source.from2Stream(s2, (p: B, s1: StreamT[A]) => s1.zip(s2.stream(p)).map(x => Timestamped(x._1.t, (x._1.v, x._2.v), 0)), "ZipT")
+
 
   def latency(dt1: Timestep) =
     source.map(
-      NamedFunction1((x: Timestamped[A]) => x.copy(dt = x.dt + dt1),
-                     "Latency " + dt1))
+      (x: Timestamped[A]) => x.copy(dt = x.dt + dt1),
+                     "Latency " + dt1)
 
   def accumulate(time: Source[Time, B]) =
     Accumulate(time, source)
@@ -38,7 +46,7 @@ case class Accumulate[A, B](source1: Source[Time, B], source2: SourceT[A, B])
     extends Op2[StreamT[A], B, Time, Timestamped[A]] {
 
 
-  def stream(p: B): Stream[StreamT[A]] = {
+  def genStream(p: B): Stream[StreamT[A]] = {
     var i  = 0
     var s1 = source1.stream(p)
     var s2 = source2.stream(p)

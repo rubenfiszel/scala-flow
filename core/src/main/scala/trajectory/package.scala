@@ -12,7 +12,7 @@ package object trajectory {
   implicit object QuaternionData extends Data[Quaternion[Real]]{
     def toValues(x: Quaternion[Real]) = Seq(x.r, x.i, x.j, x.k)
   }
-
+  
   implicit class QuaternionOps(q: Quaternion[Real]) {
     def normalized = {
       val normQ = sqrt(q.r ** 2 + q.i ** 2 + q.j ** 2 + q.k ** 2)
