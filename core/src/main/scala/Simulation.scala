@@ -1,14 +1,15 @@
 package dawn.flow
 
 
-case class Simulation[M](sinks: Seq[Sink[M]], scheduler: Scheduler = SimpleScheduler) {
+case class Simulation[M](sinks: Seq[Sink], scheduler: Scheduler = SimpleScheduler)(implicit mc: ModelCallBack[M]) {
 
   def reset() =
     Sourcable.collectResettable(sinks).map(_.reset())
 
   def run(model: M) = {
     reset()
-    scheduler.schedule(sinks, model)
+    mc(model)
+    scheduler.schedule(sinks)
   }
 
 }

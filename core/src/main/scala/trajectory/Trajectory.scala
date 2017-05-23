@@ -88,25 +88,27 @@ trait Trajectory {
 
 }
 
-object TrajectoryPointPulse extends NamedFunction2(
-  (traj: Trajectory, t: Time) => Timestamped(t, traj.getPoint(t)),
-  "toTrajPoint"
-)
+case class TrajectoryPointPulse()(implicit val mc: ModelCallBack[Trajectory]) extends (Time => Timestamped[TrajectoryPoint]) with RequireModel[Trajectory] {
+
+  def apply(t: Time) =
+    Timestamped(t, model.get.getPoint(t))
+}
 
 
-case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
+
+case class KeypointSource()(implicit val mc: ModelCallBack[Trajectory]) extends SourceT[Keypoint] with RequireModel[Trajectory]{
   def sources = List()
-  def genStream(traj: Trajectory) = {
+  def genStream() = {
     var ts = 0.0
-    traj.keypoints.map { case (kp, tf) => { ts += tf; Timestamped(ts, kp) } }.toStream
+    model.get.keypoints.map { case (kp, tf) => { ts += tf; Timestamped(ts, kp) } }.toStream
   }
 }
 
-case class TrajectoryClock(dt: Timestep) extends Op1[Time, Trajectory, Time] {
-  val source                = Clock(dt)
-  def genStream(p: Trajectory) = source.stop(p.tf).stream(null)
-}
 
+case class TrajectoryClock(dt: Timestep)(implicit val mc: ModelCallBack[Trajectory]) extends Op1[Time, Time] with RequireModel[Trajectory] {
+  val source                = Clock(dt)
+  def genStream() = source.stop(model.get.tf).stream()
+}
 
 @JsonCodec
 case class TrajectoryPoint(p: Vec3,

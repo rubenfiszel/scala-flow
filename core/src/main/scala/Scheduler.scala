@@ -2,15 +2,15 @@ package dawn.flow
 
 trait Scheduler {
 
-  def schedule[A](sinkTs: Seq[Sink[A]], model: A): Unit
+  def schedule(sinkTs: Seq[Sink]): Unit
 
 }
 
 
 object SimpleScheduler extends Scheduler {
 
-  def schedule[A](sinkTs: Seq[Sink[A]], model: A) =
-    sinkTs.foreach(_.consumeAll(model))
+  def schedule(sinkTs: Seq[Sink]) =
+    sinkTs.foreach(_.consumeAll())
 }
 /*
 object LastScheduler extends Scheduler {

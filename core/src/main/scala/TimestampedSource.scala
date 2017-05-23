@@ -14,23 +14,15 @@ object Timestamped {
 }
 
 
-class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
+class TimestampedSource[A](source: Source[Timestamped[A]]) {
 
-  def mapT[C](f: (B, A) => C, name: String): SourceT[C, B] =
-    source.map(
-      (p: B, x: Timestamped[A]) => x.copy(v = f(p, x.v)),
-      "Functor2 " + getStrOrElse(name, f.toString))
-  def mapT[C](f: (B, A) => C): SourceT[C, B] =
-    mapT(f, "")
-  def mapT[C](f: (A) => C, name: String): SourceT[C, B] =
+  def mapT[B](f: (A) => B, name: String = ""): SourceT[B] =
     source.map(
       (x: Timestamped[A]) => x.copy(v = f(x.v)),
       "FunctorT " + getStrOrElse(name, f.toString))
-  def mapT[C](f: (A) => C): SourceT[C, B] =
-    mapT(f, "")    
 
 
-  def zipT[C](s2: SourceT[C, B]) =
+  def zipT[C](s2: SourceT[C]) =
     source.zip(s2).map(x => Timestamped(x._1.t, (x._1.v, x._2.v), x._1.dt))
 
 
@@ -39,16 +31,16 @@ class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
       (x: Timestamped[A]) => x.copy(dt = x.dt + dt1),
                      "Latency " + dt1)
 
-  def accumulate(time: Source[Time, B]) =
+  def accumulate(time: Source[Time]) =
     time.accumulate(source)
 
-  def combine[C](time: Source[Time, B], source2: SourceT[C, B]) =
+  def combine[C](time: Source[Time], source2: SourceT[C]) =
     time.combine(source, source2)
 
   def toTime =
     source.map(_.t)
 
-  def merge[C](source2: Source[Timestamped[C], B]) = {
+  def merge[C](source2: Source[Timestamped[C]]) = {
     def mergeR(s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]): Stream[Either[Timestamped[A], Timestamped[C]]] = { 
       if (!s1.isEmpty && !s2.isEmpty) {
         if (s1.head.t <= s2.head.t)
@@ -62,20 +54,20 @@ class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
         s2.map(Right(_))
     }
       
-    source.from2Stream(source2, (p: B, s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]) => mergeR(s1, s2), "Zip")
+    source.from2Stream(source2, (s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]) => mergeR(s1, s2), "Zip")
   }
 
 }
 
 
-case class Accumulate[A, B](source1: Source[Time, B], source2: SourceT[A, B])
-    extends Op2[StreamT[A], B, Time, Timestamped[A]] {
+case class Accumulate[A](source1: Source[Time], source2: SourceT[A])
+    extends Op2[Time, Timestamped[A], StreamT[A]] {
 
 
-  def genStream(p: B): Stream[StreamT[A]] = {
+  def genStream(): Stream[StreamT[A]] = {
     var i  = 0
-    var s1 = source1.stream(p)
-    var s2 = source2.stream(p)
+    var s1 = source1.stream()
+    var s2 = source2.stream()
 
     def streamTail(): Stream[StreamT[A]] = {
       s1 = s1.tail
@@ -102,10 +94,10 @@ case class Accumulate[A, B](source1: Source[Time, B], source2: SourceT[A, B])
 }
 
 object Combine {
-  def apply[A, B, C](
-      source1: Source[Time, C],
-      source2: SourceT[A, C],
-      source3: SourceT[B, C]): Source[(StreamT[A], StreamT[B]), C] = {
+  def apply[A, B](
+      source1: Source[Time],
+      source2: SourceT[A],
+      source3: SourceT[B]): Source[(StreamT[A], StreamT[B])] = {
     Accumulate(source1, source2).zip(Accumulate(source1, source3))
   }
 }

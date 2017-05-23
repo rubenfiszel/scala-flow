@@ -5,11 +5,11 @@ import io.circe.syntax._
 
 object JsonExport {
 
-  def apply[A:Encoder, B](s: Source[A, B]) = s.map((x: A) => x.asJson, "JsonExport")
+  def apply[A:Encoder](s: Source[A]) = s.map((x: A) => x.asJson, "JsonExport")
   
 }
 
-case class PrintSink[A, B](source: Source[A, B]) extends Sink1[A, B] {
-  def f(p: B, x: A) = println(x)
+case class PrintSink[A](source: Source[A]) extends Sink1[A] {
+  def f(x: A) = println(x)
 }
 

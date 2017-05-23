@@ -5,7 +5,7 @@ import scala.reflect._
 import com.github.mdr.ascii.layout.GraphLayout
 
 trait Sourcable { self =>
-  def sources: Seq[Source[_, _]]
+  def sources: Seq[Source[_]]
 
   override def toString = getClass.getSimpleName
 }

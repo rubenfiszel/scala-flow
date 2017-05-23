@@ -12,6 +12,9 @@
 - Sync block to get last
 - An event-driven functionnal programming model for systems design: High-level application development
 
+- rename C into B
+- rename Quaternion Real into Quat
+
 - scalameta to name anon function
 - images in REPL or javascript images
 

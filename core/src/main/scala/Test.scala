@@ -3,11 +3,11 @@ package dawn.flow
 import breeze.linalg._
 import breeze.interpolation._
 
-case class TestTS[A: Data, B](source1: Source[Timestamped[A], B],
-                              source2: Source[Timestamped[A], B],
+case class TestTS[A: Data](source1: SourceT[A],
+                              source2: SourceT[A],
                               nb: Int)
-    extends Sink[B]
-    with Source2[Timestamped[A], Timestamped[A], B] {
+    extends Sink
+    with Source2T[A, A] {
 
   def toInterpolation(l: Array[Timestamped[A]]) = {
     val toV   = implicitly[Data[A]]
@@ -21,10 +21,10 @@ case class TestTS[A: Data, B](source1: Source[Timestamped[A], B],
     (interpolated, min, max)
   }
 
-  def consumeAll(p: B) = {
+  def consumeAll() = {
 
-    val datasA = source1.stream(p).toArray
-    val truthA = source2.stream(p).toArray
+    val datasA = source1.stream().toArray
+    val truthA = source2.stream().toArray
 
     val (datas, minD, maxD) = toInterpolation(datasA)
     val (truth, minT, maxT) = toInterpolation(truthA)

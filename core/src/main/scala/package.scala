@@ -33,31 +33,29 @@ package object flow {
   type Thrust       = Real
   type Omega        = Real
   type BodyRates    = Vec3
-
+  type Quat = Quaternion[Real]
+  type TS[A] = Timestamped[A]
   def fromRate(i: Long): Timestep = 1.0 / i
   
 
   //Less Timestamped boilerplate
-  type SourceT[A, B] = Source[Timestamped[A], B]
+  type SourceT[A] = Source[Timestamped[A]]
+
+  type Source1T[A] = Source1[Timestamped[A]]
+  type Source2T[A, B] = Source2[Timestamped[A], Timestamped[B]]
+  type Source3T[A, B, C] = Source3[Timestamped[A], Timestamped[B], Timestamped[C]]      
   type StreamT[A]    = Stream[Timestamped[A]]
 
-  type Op1T[A, B, C] = Op1[Timestamped[A], B, Timestamped[C]]
-  type Op2T[A, B, C, D] =
-    Op2[Timestamped[A], B, Timestamped[C], Timestamped[D]]
-  type Op3T[A, B, C, D, E] =
-    Op3[Timestamped[A], B, Timestamped[C], Timestamped[D], Timestamped[E]]    
+  type Op1T[A, B] = Op1[Timestamped[A], Timestamped[B]]
+  type Op2T[A, B, C] =
+    Op2[Timestamped[A], Timestamped[B], Timestamped[C]]
+  type Op3T[A, B, C, D] =
+    Op3[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D]]    
 
 
 
   //A Stream doesn't HAVE TO be a scala stream, it just happen to be
   type Stream[A] = scala.Stream[A]
-
-  //Useful to cast from non-model dependant time source to model dependant
-  implicit def fromNothing[A, B](s: Source[A, Null]) = new Source[A, B] {
-    override def toString = s.toString
-    def sources           = s.sources
-    def genStream(p: B)      = s.stream(null)
-  }
 
 
   //******* Data (as in transformable in array of Real **********
@@ -73,18 +71,18 @@ package object flow {
 
   //****** Source to specific Ops Source
 
-  implicit def toTimestampedSource[A, B](
-      s: Source[Timestamped[A], B]): TimestampedSource[A, B] =
+  implicit def toTimestampedSource[A](
+      s: Source[Timestamped[A]]): TimestampedSource[A] =
     new TimestampedSource(s)
 
-  implicit def toTimeSource[B](s: Source[Time, B]): TimeSource[B] =
+  implicit def toTimeSource[B](s: Source[Time]): TimeSource =
     new TimeSource(s)
 
-  implicit def toStreamSource[A, B](
-      s: Source[Stream[A], B]): StreamSource[A, B] =
+  implicit def toStreamSource[A](
+      s: Source[Stream[A]]): StreamSource[A] =
     new StreamSource(s)
 
-  implicit def toStdLibSource[A, B](s: Source[A, B]): StdLibSource[A, B] =
+  implicit def toStdLibSource[A](s: Source[A]): StdLibSource[A] =
     new StdLibSource(s)
 
 
@@ -109,10 +107,10 @@ package object flow {
     def minus(x: DenseVector[Double], y: DenseVector[Double]) = x - y    
   }
 
-  implicit val QuatdoubleVec = new Vec[Quaternion[Double]] {
-    def scale(x: Quaternion[Double], y: Double) = x * y
-    def plus(x: Quaternion[Double], y: Quaternion[Double]) = x + y
-    def minus(x: Quaternion[Double], y: Quaternion[Double]) = x - y    
+  implicit val QuatdoubleVec = new Vec[Quat] {
+    def scale(x: Quat, y: Double) = x * y
+    def plus(x: Quat, y: Quat) = x + y
+    def minus(x: Quat, y: Quat) = x - y    
   }
 
   implicit class VecOps[A: Vec](x: A) {

@@ -41,9 +41,10 @@ object Main extends App {
     //Warn you if trajectory is impossible
     traj.warn()
 
+    implicit val mc = new ModelCallBack[Trajectory]()
     //We cache it to showcase Cache that avoids recomputing points each time
     val clock  = TrajectoryClock(dt) //.cache()
-    val points = clock.map(TrajectoryPointPulse)
+    val points = clock.map(TrajectoryPointPulse())
 
     //******* Filter ********
     //Rate at which sensor geenerate data
@@ -64,7 +65,7 @@ object Main extends App {
     val gyroscope     = clock.map(Gyroscope(cov, dt))
     val controlInput  = clock.map(ControlInput(1))
 
-    lazy val cf: Source[Timestamped[Quaternion[Real]], Trajectory] =
+    lazy val cf: SourceT[Quat] =
       OrientationComplementaryFilter(accelerometer,
                                      gyroscope,
                                      controlInput,
@@ -77,10 +78,10 @@ object Main extends App {
     val qs =
       points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
 
-    var sinks: Seq[Sink[Trajectory]] = Seq()
+    var sinks: Seq[Sink] = Seq()
 
     def awt() = {
-      val vis = new Jzy3dVisualisation(points, KeypointSource)
+      val vis = new Jzy3dVisualisation(points, KeypointSource())
       sinks ++= Seq(vis)
     }
 
@@ -121,6 +122,8 @@ object Main extends App {
 
   def filter() = {
 
+    implicit val mc = new ModelCallBack[Trajectory]()
+
     val alpha = 0.5
 
     val clock = Clock(0.1).stop(1)
@@ -141,6 +144,8 @@ object Main extends App {
   }
 
   def trans() = {
+
+    implicit val mc = new ModelCallBack[Null]()
 
     val clock = Clock(0.1).stop(1)
     val ts    = clock.map(Timestamp(1000))

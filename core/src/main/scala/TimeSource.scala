@@ -2,7 +2,7 @@ package dawn.flow
 
 import breeze.stats.distributions._
 
-class TimeSource[B](source: Source[Time, B]) {
+class TimeSource(source: Source[Time]) {
 
   def latency(dt: Timestep) =
     source.map((x: Time) => x+dt, "Latency")
@@ -13,13 +13,13 @@ class TimeSource[B](source: Source[Time, B]) {
   def stop(tf: Timeframe) =
     source.takeWhile(_ < tf, "Stop")
 
-  def accumulate[A](source1: SourceT[A, B]) =
+  def accumulate[A](source1: SourceT[A]) =
     Accumulate(source, source1)
-  
-  def combine[A, C](source2: SourceT[A, B], source3: SourceT[C, B]) =
+
+  def combine[A, C](source2: SourceT[A], source3: SourceT[C]) =
     Combine(source, source2, source3)
 
-  def synchronize[A, C](source2: SourceT[A, B], source3: SourceT[C, B], reduce2: (Timestamped[A], Timestamped[A]) => Timestamped[A], reduce3: (Timestamped[C], Timestamped[C]) => Timestamped[C], default2: A, default3: C) = {
+  def synchronize[A, C](source2: SourceT[A], source3: SourceT[C], reduce2: (Timestamped[A], Timestamped[A]) => Timestamped[A], reduce3: (Timestamped[C], Timestamped[C]) => Timestamped[C], default2: A, default3: C) = {
     def streamOrElse[D](t: Time, stream: StreamT[D], default: D) =
       if (stream.isEmpty)
         Stream(Timestamped(t, default))

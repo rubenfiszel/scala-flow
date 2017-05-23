@@ -13,14 +13,14 @@ object Rand {
 }
 
 
-trait Sensor[A, M] extends ((M, Time) => Timestamped[A]) {
+trait Sensor[A, M] extends (Time => Timestamped[A]) with RequireModel[M] {
 
   override def toString = getClass.getSimpleName
 
   def generate(model: M, t: Time): A
 
-  def apply(p: M, t: Time) =
-    Timestamped(t, generate(p, t))
+  def apply(t: Time) =
+    Timestamped(t, generate(model.get, t))
 }
 
 trait VectorSensor[M] extends Sensor[Vec3, M] {
@@ -32,7 +32,6 @@ trait VectorSensor[M] extends Sensor[Vec3, M] {
   def generate(p: M, t: Time) =
     Rand.gaussian(genVector(p, t), cov)  //WITH NOISE
 //    genVector(p, t) //NO NOISE
-
 
 }
 
