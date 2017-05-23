@@ -6,7 +6,7 @@ import breeze.linalg.{max => _, min => _, _ => _}
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
-trait Trajectory {
+trait Trajectory extends Model {
 
   def tf: Timeframe
   def keypoints: List[(Keypoint, Timeframe)]
@@ -88,13 +88,6 @@ trait Trajectory {
 
 }
 
-case class TrajectoryPointPulse()(implicit val mc: ModelCallBack[Trajectory]) extends (Time => Timestamped[TrajectoryPoint]) with RequireModel[Trajectory] {
-
-  def apply(t: Time) =
-    Timestamped(t, model.get.getPoint(t))
-}
-
-
 
 case class KeypointSource()(implicit val mc: ModelCallBack[Trajectory]) extends SourceT[Keypoint] with RequireModel[Trajectory]{
   def sources = List()
@@ -104,11 +97,6 @@ case class KeypointSource()(implicit val mc: ModelCallBack[Trajectory]) extends 
   }
 }
 
-
-case class TrajectoryClock(dt: Timestep)(implicit val mc: ModelCallBack[Trajectory]) extends Op1[Time, Time] with RequireModel[Trajectory] {
-  val source                = Clock(dt)
-  def genStream() = source.stop(model.get.tf).stream()
-}
 
 @JsonCodec
 case class TrajectoryPoint(p: Vec3,

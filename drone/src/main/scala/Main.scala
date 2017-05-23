@@ -9,11 +9,7 @@ import spire.implicits._
 
 object Main extends App {
 
-  def drone() = {
-
-    //****** Model ******
-    val dt = 0.005
-
+  def createTrajectory() = {
     val init      = Init(Vec3.zero, Vec3.zero, Vec3.zero)
     var keypoints = List[Keypoint]()
     var tfs       = List[Time]()
@@ -40,11 +36,19 @@ object Main extends App {
 
     //Warn you if trajectory is impossible
     traj.warn()
+    traj
+  }
 
-    implicit val mc = new ModelCallBack[Trajectory]()
+  def drone() = {
+
+    //****** Model ******
+    val dt = 0.005
+
+    val traj = createTrajectory()
+    implicit val mc = ModelCB[Trajectory]
     //We cache it to showcase Cache that avoids recomputing points each time
-    val clock  = TrajectoryClock(dt) //.cache()
-    val points = clock.map(TrajectoryPointPulse())
+    val clock  = Clock(dt)
+    val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) => Timestamped(t, traj.getPoint(t))), "toPoints")
 
     //******* Filter ********
     //Rate at which sensor geenerate data

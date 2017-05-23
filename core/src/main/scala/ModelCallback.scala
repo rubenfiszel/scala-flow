@@ -17,6 +17,13 @@ class ModelCallBack[A] extends (A => Unit) {
 
 }
 
+object RequireModel {
+  def isRequiring(x: Any) = x match {
+    case x: RequireModel[_] => true
+    case _ => false
+  }
+}
+
 trait RequireModel[M] {
 
   var model: Option[M] = None
@@ -26,3 +33,8 @@ trait RequireModel[M] {
     model = Some(x)
   })
 }
+
+object ModelCB {
+  def apply[A](implicit ev: A <:< Model) = new ModelCallBack[A]()
+}
+

@@ -3,6 +3,12 @@ package dawn.flow
 import spire.math._
 import spire.implicits._
 
+case class LambdaWithModel[A, B, M](f: (A, M) => B, name: String = "")(implicit val mc: ModelCallBack[M]) extends (A => B) with RequireModel[M] {
+  override def toString = getStrOrElse(name, "Lambda")
+  def apply(x: A) = f(x, model.get)
+}
+
+
 class StdLibSource[A](source: Source[A]) {
 
   def cache() = Cache(source)
@@ -10,10 +16,10 @@ class StdLibSource[A](source: Source[A]) {
   def buffer(init: A) = Buffer(source, init)
 }
 
-case class Clock(dt: Timestep) extends Source[Time]  {
+case class Clock[M <: Model](dt: Timestep)(implicit val mc: ModelCallBack[M]) extends Source[Time]  with RequireModel[M] {
   override def toString = "Clock " + dt 
   def sources = List()
-  def genStream() = genPerfectTimes(dt)
+  def genStream() = genPerfectTimes(dt).takeWhile(_ <= model.get.tf)
 
   def genPerfectTimes(dt: Timestep): Stream[Time] = {
     def genTime(i: Long): Stream[Time] = (dt * i) #:: genTime(i + 1)

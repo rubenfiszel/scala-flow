@@ -6,16 +6,25 @@ import com.github.mdr.ascii.layout.GraphLayout
 
 trait Sourcable { self =>
   def sources: Seq[Source[_]]
-
+  def requireModel = RequireModel.isRequiring(self)
   override def toString = getClass.getSimpleName
 }
 
 object Sourcable {
 
+  val model: Sourcable = new Sourcable {
+    def sources = List()
+    override def toString = "Model"
+  }
+
+  def addModel(x: List[Sourcable]) =
+    x.filter(_.requireModel).map(s => (model, s))
+
+
   def graph(s: Seq[Sourcable],
-    g: Graph[Sourcable] = Graph(Set(), List())): Graph[Sourcable] = {
+    g: Graph[Sourcable] = Graph(Set(model), List())): Graph[Sourcable] = {
     val nvertices = g.vertices ++ s.toSet ++ s.flatMap(_.sources)
-    val nedges = (g.edges ++ s.toList.flatMap(x => x.sources.map(y => (y, x)))).distinct
+    val nedges = (g.edges ++ addModel(s.toList) ++ s.toList.flatMap(x => x.sources.map(y => (y, x)))).distinct
     val init = g.copy(
         vertices = nvertices,
         edges = nedges)
