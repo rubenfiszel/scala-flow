@@ -21,6 +21,7 @@ case class Plot[A: Data, B](source: Source[Timestamped[A], B])
         p += plot(x, v)
         p.xlabel = "time"
         p.ylabel = "value"
+        p.ylim = (-1, 1)        
       }
     }
   }
@@ -46,7 +47,6 @@ case class Plot2[A: Data, B](source1: Source[Timestamped[A], B],
     val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))
 
     val f = new Figure("fig", ys.length, 1)
-
     val titles =
       if (ys.length == 3)
         Seq("x", "y", "z")
@@ -60,6 +60,7 @@ case class Plot2[A: Data, B](source1: Source[Timestamped[A], B],
         p.xlabel = "time"
         p.ylabel = t
         p.legend = true
+//        p.ylim = (-1, 1)
       }
     }
   }

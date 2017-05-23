@@ -149,7 +149,7 @@ case class QuadTrajectorySection(init: Init = Init.zero,
     Vec3(axis.map(_.getPosition(t)))
 
   def getNormalVector(t: Time) =
-    Vec3(normalize(getAcceleration(t) - g))
+    normalize(getAcceleration(t) - g)
 
   def getThrust(t: Time): Thrust =
     norm((getAcceleration(t) - g))

@@ -41,49 +41,46 @@ object Main extends App {
     //Warn you if trajectory is impossible
     traj.warn()
 
-    val keypointsS = KeypointSource
     //We cache it to showcase Cache that avoids recomputing points each time
-    val clock1 = TrajectoryClock(dt) //.cache()
-    val trajPP = clock1.map(TrajectoryPointPulse)
-    val points = trajPP
+    val clock  = TrajectoryClock(dt) //.cache()
+    val points = clock.map(TrajectoryPointPulse)
 
     //******* Filter ********
     //Rate at which sensor geenerate data
 
-    val divider = 1
     //The NormalVector through the ComplimentaryFilter
 
     //filter parameter
-    val cov   = DenseMatrix.eye[Real](3) * 0.000001
-    val alpha = 0.05
+    val cov   = DenseMatrix.eye[Real](3) * 1.0
+    val alpha = 0.95
+    val initQ = Quaternion(1.0, 0, 0, 0)
 
-    val clock2     = clock1 //.divider(divider)
-    val clockNoise = clock2 //.latencyVariance(0.01)
+//    val clock2     = clock.divider(divider)
+//    val clockNoise = clock.latencyVariance(0.01)
 
-//  val imu = clockNoise.map(
-//    IMU(Accelerometer(cov), Gyroscope(cov, dt * divider))) //.latency(0.05)
-    val accelerometer = clock2.map(Accelerometer(cov))
-    val gyroscope     = clock2.map(Gyroscope(cov, dt * divider))
+//  val imu = clock.map(
+//    IMU(Accelerometer(cov), Gyroscope(cov, dt)))
+    val accelerometer = clock.map(Accelerometer(cov))
+    val gyroscope     = clock.map(Gyroscope(cov, dt))
+    val controlInput  = clock.map(ControlInput(1))
 
     lazy val cf: Source[Timestamped[Quaternion[Real]], Trajectory] =
-      OrientationComplementaryFilterBlock(accelerometer,
-                                          gyroscope,
-                                          Quaternion(1.0, 0, 0, 0),
-                                          alpha,
-                                          dt * divider)
-//      .cache() //.latency(0.0)
-//    OrientationComplimentaryFilter(imu, alpha, dt * divider).cache()//.latency(0.0)
+      OrientationComplementaryFilter(accelerometer,
+                                     gyroscope,
+                                     controlInput,
+                                     initQ,
+                                     alpha,
+                                     dt)
+
+    val lpf = LowPassFilter(cf, Timestamped(initQ), 0.2)
 
     val qs =
       points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
 
-//    val datas = sensors.map { case (ts, s) => s.generate(traj, ts, tf, seed) }
-//(keypoints, points, datas)
-
     var sinks: Seq[Sink[Trajectory]] = Seq()
 
     def awt() = {
-      val vis = new Jzy3dVisualisation(points, keypointsS)
+      val vis = new Jzy3dVisualisation(points, KeypointSource)
       sinks ++= Seq(vis)
     }
 
@@ -100,7 +97,7 @@ object Main extends App {
 
     def figure() = {
 
-      val plot = Plot2(cf, qs)
+      val plot = Plot2(lpf, qs)
 
       sinks ++= Seq(plot)
     }
@@ -124,21 +121,56 @@ object Main extends App {
 
   def filter() = {
 
-    val alpha = 0.95
+    val alpha = 0.5
 
-    val clock = Clock(0.05).stop(10)
-    val ts    = clock.map(Timestamp(10))
-    val sinus = ts.mapT(sin(_), "Sinus")
-    val filt  = HighPassFilter(sinus, Timestamped(0, 0.0, 0), alpha)
-    val plot  = Plot(filt)
+    val clock = Clock(0.1).stop(1)
+    val ts    = clock.map(Timestamp(1000))
+    val sinus = ts.mapT(x => Quaternion(1.0, 0, 0, 0), "Sinus")
+    val filt =
+      LowPassFilter(sinus, Timestamped(0, Quaternion(1.0, 0, 0, 0), 0), alpha)
+
+    val plot = Plot(filt)
+
     val sinks = Seq(plot)
 
     val sim = Simulation(sinks)
     sim.run(null)
 
-    Sourcable.drawGraph(sinks)    
+    Sourcable.drawGraph(sinks)
 
   }
 
-  filter()
+  def trans() = {
+
+    val clock = Clock(0.1).stop(1)
+    val ts    = clock.map(Timestamp(1000))
+    val quat = ts.mapT(
+      x => Quaternion(sin(x), cos(x), cos(x), sin(x)).normalized,
+      "Sinus")
+    val q = Quaternion(1.0, 0, 0, 0)
+    val retrieved = quat.mapT(
+      x =>
+        TQuaternion
+          .localAngleToLocalQuat(q, TQuaternion.quatToAxisAngle(q, x))
+          .rotateBy(q),
+      "Retrieve")
+
+    val plot = Plot2(quat, retrieved)
+
+//    val json = JsonExport(filt)
+//    val print = PrintSink(json)
+
+    val sinks = Seq(plot) //, print)
+
+    val sim = Simulation(sinks)
+    sim.run(null)
+
+    Sourcable.drawGraph(sinks)
+
+  }
+
+  //  filter()
+  // trans()
+  drone()
+
 }

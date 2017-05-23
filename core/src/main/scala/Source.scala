@@ -28,9 +28,9 @@ trait Source[A, B] extends Sourcable with Resettable { parent =>
     Op1.apply(this, (p: B) => f(stream(p)), name)
 
   def from2Stream[C, D](s2: Source[D, B],
-                        f: (B, Stream[A]) => Stream[C],
+                        f: (B, Stream[A], Stream[D]) => Stream[C],
                         name: String) =
-    Op2.apply(this, s2, (p: B) => f(p, stream(p)), name)
+    Op2.apply(this, s2, (p: B) => f(p, stream(p), s2.stream(p)), name)
 
 
   def filter(b: (A) => Boolean, name: String): Source[A, B] =
@@ -82,7 +82,7 @@ trait Source[A, B] extends Sourcable with Resettable { parent =>
     flatMap(f, "")
 
   def zip[C](s2: Source[C, B]) =
-    from2Stream(s2, (p: B, s1: Stream[A]) => s1.zip(s2.stream(p)), "Zip")
+    from2Stream(s2, (p: B, s1s: Stream[A], s2s: Stream[C]) => s1s.zip(s2s), "Zip")
 
   
 }
@@ -97,6 +97,13 @@ trait Source2[A, B, C] extends Sourcable {
   def source1: Source[A, C]
   def source2: Source[B, C]
   lazy val sources = List(source1, source2)
+}
+
+trait Source3[A, B, C, D] extends Sourcable {
+  def source1: Source[A, D]
+  def source2: Source[B, D]
+  def source3: Source[C, D]  
+  lazy val sources = List(source1, source2, source3)
 }
 
 trait Op1[A, B, C] extends Source[A, B] with Source1[C, B]
@@ -124,6 +131,8 @@ object Op2 {
     def genStream(param1: B) = stream1(param1)
   }
 }
+
+trait Op3[A, B, C, D, E] extends Source[A, B] with Source3[C, D, E, B]
 
 trait Resettable {
   def reset(): Unit

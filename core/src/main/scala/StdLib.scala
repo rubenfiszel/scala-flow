@@ -22,6 +22,7 @@ case class Clock(dt: Timestep) extends Source[Time, Null]  {
   
 }
 
+//Case class and not function because A is a type parameter not known in advance
 case class Integrate[A: Vec, B](source: Source[A, B], dt: Timestep) extends Op1[A, B, A] {
   def genStream(p: B) = source.map((x: A) => x*dt).stream(p)
 }

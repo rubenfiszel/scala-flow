@@ -20,9 +20,10 @@ trait Trajectory {
 
   //Acceleration + G
   def getFullAcceleration(t: Time): Acceleration =
-    Vec3(gravity)
-//    Vec3(getAcceleration(t) + gravity)
+   getAcceleration(t) + gravity    
 
+
+  //TODO: getAcceleration in Local coordinate you retard
   //Acceleration in the local referential of the drone
   def getFullLocalAcceleration(t: Time) = {
     getOrientationQuaternion(t).reciprocal
@@ -71,7 +72,7 @@ trait Trajectory {
 
   def getBodyRates(t: Time, dt: Timestep): Vec3 = {
     val rt = lastPossibleDelta(t, dt)
-    TQuaternion.quatToBodyRate(getOrientationQuaternion(rt),
+    TQuaternion.quatToAxisAngle(getOrientationQuaternion(rt),
                               getOrientationQuaternion(rt + dt)) / dt
   }
 
@@ -101,7 +102,7 @@ case object KeypointSource extends Source[Timestamped[Keypoint], Trajectory] {
   }
 }
 
-case class TrajectoryClock(dt: Timestep) extends Block1[Time, Trajectory, Time] {
+case class TrajectoryClock(dt: Timestep) extends Op1[Time, Trajectory, Time] {
   val source                = Clock(dt)
   def genStream(p: Trajectory) = source.stop(p.tf).stream(null)
 }

@@ -7,6 +7,12 @@ case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
   def time = t + dt
 }
 
+object Timestamped {
+
+  def apply[A](x: A): Timestamped[A] = Timestamped(0, x)
+
+}
+
 
 class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
 
@@ -25,7 +31,7 @@ class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
 
 
   def zipT[C](s2: SourceT[C, B]) =
-    source.from2Stream(s2, (p: B, s1: StreamT[A]) => s1.zip(s2.stream(p)).map(x => Timestamped(x._1.t, (x._1.v, x._2.v), 0)), "ZipT")
+    source.zip(s2).map(x => Timestamped(x._1.t, (x._1.v, x._2.v), x._1.dt))
 
 
   def latency(dt1: Timestep) =
@@ -34,10 +40,30 @@ class TimestampedSource[A, B](source: Source[Timestamped[A], B]) {
                      "Latency " + dt1)
 
   def accumulate(time: Source[Time, B]) =
-    Accumulate(time, source)
+    time.accumulate(source)
 
   def combine[C](time: Source[Time, B], source2: SourceT[C, B]) =
-    Combine(time, source, source2)
+    time.combine(source, source2)
+
+  def toTime =
+    source.map(_.t)
+
+  def merge[C](source2: Source[Timestamped[C], B]) = {
+    def mergeR(s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]): Stream[Either[Timestamped[A], Timestamped[C]]] = { 
+      if (!s1.isEmpty && !s2.isEmpty) {
+        if (s1.head.t <= s2.head.t)
+          Left(s1.head) #:: mergeR(s1.tail, s2)
+        else
+          Right(s2.head) #:: mergeR(s1, s2.tail)
+      }
+      else if (s2.isEmpty)
+        s1.map(Left(_))
+      else
+        s2.map(Right(_))
+    }
+      
+    source.from2Stream(source2, (p: B, s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]) => mergeR(s1, s2), "Zip")
+  }
 
 }
 
@@ -62,7 +88,7 @@ case class Accumulate[A, B](source1: Source[Time, B], source2: SourceT[A, B])
     }
 
     def streamT(stop: Time): StreamT[A] = {
-      val (pre, su) = s2.span(_.t < stop)
+      val (pre, su) = s2.span(_.t <= stop)
       s2 = su
       pre
     }

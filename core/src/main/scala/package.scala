@@ -6,41 +6,21 @@ import breeze.linalg.DenseVector
 import scala.language.implicitConversions
 import spire.math.Quaternion
 import spire.implicits._
+import io.circe.generic.JsonCodec
+import scala.collection.GenSeq
+import io.circe._
 
 package object flow {
 
+  //Common seed 
   val Random = RandBasis.withSeed(12345)
 
+
+  //Common type aliases
   type Real      = Double
   type Timestep  = Real
   type Timeframe = Real
   type Time      = Real
-
-
-  /*  //JSON
-  implicit val encodeData: Encoder[Data] = new Encoder[Data] {
-    final def apply(d: Data): Json = d.toValues.asJson
-  }
-   */
-
-  type SourceT[A, B] = Source[Timestamped[A], B]
-  type StreamT[A]    = Stream[Timestamped[A]]
-
-  type Op1T[A, B, C] = Op1[Timestamped[A], B, Timestamped[C]]
-  type Op2T[A, B, C, D] =
-    Op2[Timestamped[A], B, Timestamped[C], Timestamped[D]]
-
-  type Block1T[A, B, C] = Block1[Timestamped[A], B, Timestamped[C]]
-  type Block2T[A, B, C, D] =
-    Block2[Timestamped[A], B, Timestamped[C], Timestamped[D]]
-
-  type Stream[A] = scala.Stream[A]
-
-  implicit def fromNothing[A, B](s: Source[A, Null]) = new Source[A, B] {
-    override def toString = s.toString
-    def sources           = s.sources
-    def genStream(p: B)      = s.stream(null)
-  }
 
   type Rate = Long
   def toReal(x: Timestep) = x.toDouble
@@ -55,21 +35,43 @@ package object flow {
   type BodyRates    = Vec3
 
   def fromRate(i: Long): Timestep = 1.0 / i
+  
+
+  //Less Timestamped boilerplate
+  type SourceT[A, B] = Source[Timestamped[A], B]
+  type StreamT[A]    = Stream[Timestamped[A]]
+
+  type Op1T[A, B, C] = Op1[Timestamped[A], B, Timestamped[C]]
+  type Op2T[A, B, C, D] =
+    Op2[Timestamped[A], B, Timestamped[C], Timestamped[D]]
+  type Op3T[A, B, C, D, E] =
+    Op3[Timestamped[A], B, Timestamped[C], Timestamped[D], Timestamped[E]]    
+
+
+
+  //A Stream doesn't HAVE TO be a scala stream, it just happen to be
+  type Stream[A] = scala.Stream[A]
+
+  //Useful to cast from non-model dependant time source to model dependant
+  implicit def fromNothing[A, B](s: Source[A, Null]) = new Source[A, B] {
+    override def toString = s.toString
+    def sources           = s.sources
+    def genStream(p: B)      = s.stream(null)
+  }
+
+
+  //******* Data (as in transformable in array of Real **********
 
   implicit object RealData extends Data[Real] {
     def toValues(x: Real) = Seq(x)
   }
-  
-  implicit object Vec3Data extends Data[Vec3] {
-    def toValues(x: Vec3) = x.toArray.toSeq
+
+  implicit object denseVectorRealData extends Data[DenseVector[Real]] {
+    def toValues(x: DenseVector[Real]) = x.toArray.toSeq
   }
 
-  implicit def toVec3(x: DenseVector[Real]): Vec3 = Vec3(x)
 
-  def debug[A](x: A) = {
-    println(x)
-    x
-  }
+  //****** Source to specific Ops Source
 
   implicit def toTimestampedSource[A, B](
       s: Source[Timestamped[A], B]): TimestampedSource[A, B] =
@@ -85,11 +87,15 @@ package object flow {
   implicit def toStdLibSource[A, B](s: Source[A, B]): StdLibSource[A, B] =
     new StdLibSource(s)
 
+
+  //***** Vec (as in some Ops common in "vectors". Scalars are 1D vectors)
+
   //spire/breeze integration
   //Let's hope they will be a better integration in the future
   //For now it will be enough
   //TODO: Make it generic instead of specific to Double
-  
+
+
 
   implicit val doubleVec = new Vec[Double] {
     def scale(x: Double, y: Double) = x * y
@@ -121,12 +127,59 @@ package object flow {
     def plus(x: Timestamped[A], y: Timestamped[A]) = x.copy(v = x.v + y.v)
     def minus(x: Timestamped[A], y: Timestamped[A]) = x.copy(v = x.v - y.v)
   }
-  
+
+  //********* Utils *************
+
   def getStrOrElse(str: String, default: String) =
     if (str.isEmpty)
       default
     else
       str
 
+  def debug[A](x: A) = {
+    println(x)
+    x
+  }
 
+  //********* Vec3 (just a thin wrapper around DenseVector) *************
+
+  type Vec3 = DenseVector[Real]
+
+  implicit class Vec3Ops(dv: DenseVector[Real]) {
+    def x = dv(0)
+    def y = dv(1)
+    def z = dv(2)
+  }
+
+
+  object Vec3 {
+    def zero = Vec3(0, 0, 0)
+    def one  = Vec3(1, 1, 1)
+
+    def apply(x: Real = 0, y: Real = 0, z: Real = 0): Vec3 = 
+      DenseVector(x, y, z)
+
+//    def apply(gs: Vector[Real]): Vec3 =
+//      apply(gs.toArray)
+
+    def apply(gs: GenSeq[Real]): Vec3 = {
+      require(gs.length == 3)
+      DenseVector(gs(0), gs(1), gs(2))
+    }
+  }
+
+  implicit val encodeDV: Encoder[DenseVector[Real]] = new Encoder[DenseVector[Real]] {
+    def apply(x: DenseVector[Real]) =
+      Json.fromValues(x.map(y => Json.fromDouble(y).get).toArray)
+  }
+
+  implicit val decodeDV: Decoder[DenseVector[Real]] = new Decoder[DenseVector[Real]] {
+    def apply(x: HCursor) =
+      for {
+        v <- x.downArray.as[Array[Double]]
+      }
+      yield
+        Vec3(v)
+  }
+  
 }
