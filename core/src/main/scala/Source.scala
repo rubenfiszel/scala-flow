@@ -70,6 +70,14 @@ trait Source3[A, B, C] extends Sourcable {
   lazy val sources = List(source1, source2, source3)
 }
 
+trait Source4[A, B, C, D] extends Sourcable {
+  def source1: Source[A]
+  def source2: Source[B]
+  def source3: Source[C]
+  def source4: Source[D]  
+  lazy val sources = List(source1, source2, source3, source4)
+}
+
 trait Op1[A, B] extends Source[B] with Source1[A]
 
 object Op1 {
@@ -101,6 +109,7 @@ object Op2 {
 }
 
 trait Op3[A, B, C, D] extends Source[D] with Source3[A, B, C]
+trait Op4[A, B, C, D, E] extends Source[E] with Source4[A, B, C, D]
 
 trait Resettable {
   def reset(): Unit

@@ -4,6 +4,7 @@ import io.circe.generic.semiauto._
 import io.circe._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
+import breeze.linalg.DenseVector
 
 package object trajectory {
   implicit val encodeQuaternion: Encoder[Quaternion[Real]] = deriveEncoder
@@ -12,7 +13,11 @@ package object trajectory {
   implicit object QuaternionData extends Data[Quaternion[Real]]{
     def toValues(x: Quaternion[Real]) = Seq(x.r, x.i, x.j, x.k)
   }
-  
+
+  implicit class DenseVectorOps(v: VectorR) {
+    def toQuaternion = Quaternion(v(0), v(1), v(2), v(3))
+  }
+
   implicit class QuaternionOps(q: Quaternion[Real]) {
     def normalized = {
       val normQ = sqrt(q.r ** 2 + q.i ** 2 + q.j ** 2 + q.k ** 2)
@@ -28,6 +33,9 @@ package object trajectory {
 
     def rotateBy(q2: Quaternion[Real]) =
       q2*q
+
+    def toDenseVector =
+      DenseVector(q.r, q.i, q.j, q.k)
     
   }
   

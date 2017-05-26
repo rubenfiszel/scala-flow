@@ -2,7 +2,7 @@ package dawn
 
 //import scala.{specialized => sp}
 import breeze.stats.distributions._
-import breeze.linalg.DenseVector
+import breeze.linalg.{DenseVector, DenseMatrix}
 import scala.language.implicitConversions
 import spire.math.Quaternion
 import spire.implicits._
@@ -33,6 +33,9 @@ package object flow {
   type Thrust       = Real
   type Omega        = Real
   type BodyRates    = Vec3
+
+  type VectorR = DenseVector[Real]
+  type MatrixR = DenseMatrix[Real]
   type Quat = Quaternion[Real]
   type TS[A] = Timestamped[A]
   def fromRate(i: Long): Timestep = 1.0 / i
@@ -51,7 +54,9 @@ package object flow {
     Op2[Timestamped[A], Timestamped[B], Timestamped[C]]
   type Op3T[A, B, C, D] =
     Op3[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D]]    
-
+  type Op4T[A, B, C, D, E] =
+    Op4[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D], Timestamped[E]]    
+  
 
 
   //A Stream doesn't HAVE TO be a scala stream, it just happen to be

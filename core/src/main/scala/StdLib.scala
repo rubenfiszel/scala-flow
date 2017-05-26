@@ -16,17 +16,19 @@ class StdLibSource[A](source: Source[A]) {
   def buffer(init: A) = Buffer(source, init)
 }
 
-case class Clock[M <: Model](dt: Timestep)(implicit val mc: ModelCallBack[M]) extends Source[Time]  with RequireModel[M] {
+case class Clock(dt: Timestep) extends Source[Time]  {
   override def toString = "Clock " + dt 
   def sources = List()
-  def genStream() = genPerfectTimes(dt).takeWhile(_ <= model.get.tf)
+  def genStream() = genPerfectTimes(dt)
 
   def genPerfectTimes(dt: Timestep): Stream[Time] = {
     def genTime(i: Long): Stream[Time] = (dt * i) #:: genTime(i + 1)
     genTime(0)
   }
   
+
 }
+
 
 //Case class and not function because A is a type parameter not known in advance
 case class Integrate[A: Vec](source: Source[A], dt: Timestep) extends Op1[A, A] {

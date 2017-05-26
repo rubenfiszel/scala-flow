@@ -7,7 +7,7 @@ import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
-object DroneComplementary extends App {
+object DroneParticle extends App {
 
   //****** Model ******
   val dt = Config.dt
@@ -15,36 +15,23 @@ object DroneComplementary extends App {
   val traj = TrajFactory.generate()
 
   implicit val mc = ModelCB[Trajectory]
-  //We cache it to showcase Cache that avoids recomputing points each time
+
   val clock  = TrajectoryClock(dt)
   val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) => Timestamped(t, traj.getPoint(t))), "toPoints")
-
-  //******* Filter ********
-  //Rate at which sensor geenerate data
-
-  //The NormalVector through the ComplimentaryFilter
 
   //filter parameter
   val cov   = Config.cov
   val covQ = Config.covQ
   val initQ = Config.initQ
 
-  val alpha = 0.95
-
 
   val accelerometer = clock.map(Accelerometer(cov))
   val gyroscope     = clock.map(Gyroscope(cov, dt))
   val controlInput  = clock.map(ControlInput(1))
+  val vicon = clock.map(Vicon(cov, covQ))
 
   lazy val filter: SourceT[Quat] =
-   OrientationComplementaryFilter(accelerometer,
-   gyroscope,
-   controlInput,
-   initQ,
-   alpha,
-   dt)
-
-  val lpf = LowPassFilter(filter, Timestamped(initQ), 0.2)
+    ParticleFilter(accelerometer, gyroscope, controlInput, vicon, initQ, dt, 4000, cov)
 
   val qs =
     points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
@@ -57,18 +44,18 @@ object DroneComplementary extends App {
   }
 
   def printJson() = {
-    val jsonFilter = JsonExport(lpf)
+    val jsonFilter = JsonExport(filter)
     val printFilter = PrintSink(jsonFilter)
     sinks ++= Seq(printFilter)
   }
 
   def figure() = {
-    val plot = Plot2(lpf, qs)
+    val plot = Plot2(filter, qs)
     sinks ++= Seq(plot)
   }
 
   def testTS() = {
-    val test = TestTS(lpf, qs, 1000)
+    val test = TestTS(filter, qs, 1000)
     sinks ++= Seq(test)
   }
 

@@ -97,6 +97,11 @@ case class KeypointSource()(implicit val mc: ModelCallBack[Trajectory]) extends 
   }
 }
 
+case class TrajectoryClock[M <: Trajectory](dt: Timestep)(implicit val mc: ModelCallBack[M]) extends Source[Time]  with RequireModel[M] {
+  def sources = List()  
+  override def toString = "TrajectoryClock " + dt
+  def genStream() = Clock(dt).takeWhile(_ < model.get.tf).genStream()
+}
 
 @JsonCodec
 case class TrajectoryPoint(p: Vec3,

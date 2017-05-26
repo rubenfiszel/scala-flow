@@ -3,7 +3,8 @@ package dawn.flow.trajectory
 import dawn.flow._
 import breeze.linalg._
 
-case class Accelerometer(cov: DenseMatrix[Real])(implicit val mc: ModelCallBack[Trajectory])
+case class Accelerometer(cov: DenseMatrix[Real])(
+    implicit val mc: ModelCallBack[Trajectory])
     extends VectorSensor[Trajectory] {
 
   def genVector(traj: Trajectory, t: Time) =
@@ -12,10 +13,13 @@ case class Accelerometer(cov: DenseMatrix[Real])(implicit val mc: ModelCallBack[
 }
 
 object Accelerometer {
-  def apply(source: Source[Time], cov: DenseMatrix[Real])(implicit mc: ModelCallBack[Trajectory]): SourceT[Acceleration] = source.map(Accelerometer(cov))
+  def apply(source: Source[Time], cov: DenseMatrix[Real])(
+      implicit mc: ModelCallBack[Trajectory]): SourceT[Acceleration] =
+    source.map(Accelerometer(cov))
 }
 
-case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)(implicit val mc: ModelCallBack[Trajectory])
+case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)(
+    implicit val mc: ModelCallBack[Trajectory])
     extends VectorSensor[Trajectory] {
 
   def genVector(traj: Trajectory, t: Time) =
@@ -24,25 +28,31 @@ case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)(implicit val mc: Mode
 }
 
 object Gyroscope {
-  def apply(source: Source[Time], cov: DenseMatrix[Real], dt: Timestep)(implicit mc: ModelCallBack[Trajectory]): SourceT[BodyRates] = source.map(Gyroscope(cov, dt))
+  def apply(source: Source[Time], cov: MatrixR, dt: Timestep)(
+      implicit mc: ModelCallBack[Trajectory]): SourceT[BodyRates] =
+    source.map(Gyroscope(cov, dt))
 }
 
+case class Vicon(covP: MatrixR, covQ: MatrixR)(
+    implicit val mc: ModelCallBack[Trajectory])
+    extends Sensor[(Position, Quat), Trajectory] {
 
-case class Vicon(cov: DenseMatrix[Real])(implicit val mc: ModelCallBack[Trajectory]) extends VectorSensor[Trajectory] {
-
-  def genVector(traj: Trajectory, t: Time) = 
-    traj.getPosition(t)
+  def generate(traj: Trajectory, t: Time) =
+    (Rand.gaussian(traj.getPosition(t), covP), Rand.gaussian(traj.getOrientationQuaternion(t).toDenseVector, covQ).toQuaternion)
 
 }
 
 object Vicon {
-  def apply(source: Source[Time], cov: DenseMatrix[Real])(implicit mc: ModelCallBack[Trajectory]): SourceT[Position] = source.map(Vicon(cov))
+  def apply(source: Source[Time], covP: MatrixR,  covQ: MatrixR)(
+      implicit mc: ModelCallBack[Trajectory]): SourceT[(Position, Quat)] =
+    source.map(Vicon(covP, covQ))
 }
 
-case class ControlInput(std: Real)(implicit val mc: ModelCallBack[Trajectory]) extends Sensor[Thrust, Trajectory] {
+case class ControlInput(std: Real)(implicit val mc: ModelCallBack[Trajectory])
+    extends Sensor[Thrust, Trajectory] {
 
-   def generate(traj: Trajectory, t: Time) = 
-     Rand.gaussian(traj.getThrust(t), std)
+  def generate(traj: Trajectory, t: Time) =
+    Rand.gaussian(traj.getThrust(t), std)
 
 }
 
@@ -56,5 +66,8 @@ case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M])
 
 object IMU {
   def apply(acc: Accelerometer, gyro: Gyroscope) = Sensor2(acc, gyro)
-  def apply(source: Source[Time], acc: Accelerometer, gyro: Gyroscope): SourceT[(Acceleration, BodyRates)] = source.map(Sensor2(acc, gyro))
+  def apply(source: Source[Time],
+            acc: Accelerometer,
+            gyro: Gyroscope): SourceT[(Acceleration, BodyRates)] =
+    source.map(Sensor2(acc, gyro))
 }
