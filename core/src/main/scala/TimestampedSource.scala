@@ -2,14 +2,25 @@ package dawn.flow
 
 import io.circe.generic.JsonCodec
 
-@JsonCodec
-case class Timestamped[A](t: Time, v: A, dt: Timestep = 0) {
+trait Timestamped[A] {
+  self =>
+  def v: A
+  def t: Time
+  def dt: Time
   def time = t + dt
+  def map[B](f: A => B) = Timestamped[B](t, f(v), dt)
+  def addLatency(dt1: Time) = Timestamped[A](t, v, dt + dt1)
 }
 
 object Timestamped {
 
-  def apply[A](x: A): Timestamped[A] = Timestamped(0, x)
+  def apply[A](t1: Time, v1: => A,dt1: Time = 0): Timestamped[A] = new Timestamped[A] {
+    lazy val v = v1
+    def t = t1
+    def dt = dt1
+  }
+
+  def apply[A](v1: => A): Timestamped[A] = apply(0, v1)
 
 }
 
@@ -18,17 +29,33 @@ class TimestampedSource[A](source: Source[Timestamped[A]]) {
 
   def mapT[B](f: (A) => B, name: String = ""): SourceT[B] =
     source.map(
-      (x: Timestamped[A]) => x.copy(v = f(x.v)),
+      (x: Timestamped[A]) => x.map(f),
       "FunctorT " + getStrOrElse(name, f.toString))
 
 
   def zipT[C](s2: SourceT[C]) =
     source.zip(s2).map(x => Timestamped(x._1.t, (x._1.v, x._2.v), x._1.dt))
 
+  def zipLast[C](source2: SourceT[C]) = {
+    def stream(s1: StreamT[A], s2: StreamT[C]): Stream[(Timestamped[A], Timestamped[C])]= {
+      if (s1.isEmpty || s2.isEmpty)
+        Stream.empty
+      else {
+//        if (s1.head.time > s2.head.time)
+//          stream(s1, s2.tail)
+//        else 
+          (s1.head, s2.head) #:: stream(s1.tail, s2.tail)
+      }      
+    }
+    source.from2Stream(source2, (s1: StreamT[A], s2: StreamT[C]) => stream(s1, s2), "ZipLast")    
+  }
+
+  def zipLastT[C](s2: SourceT[C]) =
+    zipLast(s2).map(x => Timestamped(x._1.t, (x._1.v, x._2.v), x._1.dt), "ZipLastT")
 
   def latency(dt1: Timestep) =
     source.map(
-      (x: Timestamped[A]) => x.copy(dt = x.dt + dt1),
+      (x: Timestamped[A]) => x.addLatency(dt1),
                      "Latency " + dt1)
 
   def accumulate(time: Source[Time]) =
@@ -38,12 +65,12 @@ class TimestampedSource[A](source: Source[Timestamped[A]]) {
     time.combine(source, source2)
 
   def toTime =
-    source.map(_.t)
+    source.map(_.time)
 
-  def merge[C](source2: Source[Timestamped[C]]) = {
-    def mergeR(s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]): Stream[Either[Timestamped[A], Timestamped[C]]] = { 
+  def merge[C](source2: SourceT[C]): Source[Either[Timestamped[A], Timestamped[C]]] = {
+    def mergeR(s1: StreamT[A], s2: StreamT[C]): Stream[Either[Timestamped[A], Timestamped[C]]] = { 
       if (!s1.isEmpty && !s2.isEmpty) {
-        if (s1.head.t <= s2.head.t)
+        if (s1.head.time <= s2.head.time)
           Left(s1.head) #:: mergeR(s1.tail, s2)
         else
           Right(s2.head) #:: mergeR(s1, s2.tail)
@@ -54,7 +81,16 @@ class TimestampedSource[A](source: Source[Timestamped[A]]) {
         s2.map(Right(_))
     }
       
-    source.from2Stream(source2, (s1: Stream[Timestamped[A]], s2: Stream[Timestamped[C]]) => mergeR(s1, s2), "Zip")
+    source.from2Stream(source2, (s1: StreamT[A], s2: StreamT[C]) => mergeR(s1, s2), "Zip")
+  }
+
+  def fusion(sources: SourceT[A]*): SourceT[A] = {
+    def flatten(x: Either[Timestamped[A], Timestamped[A]]): Timestamped[A] =
+      x match {
+        case Left(y) => y
+        case Right(y) => y
+      }
+    sources.foldLeft(source)((acc, pos) => acc.merge(pos).map(flatten _, "Fusion"))
   }
 
 }

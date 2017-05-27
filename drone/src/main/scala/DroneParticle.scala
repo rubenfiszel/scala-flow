@@ -16,22 +16,30 @@ object DroneParticle extends App {
 
   implicit val mc = ModelCB[Trajectory]
 
-  val clock  = TrajectoryClock(dt)
-  val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) => Timestamped(t, traj.getPoint(t))), "toPoints")
+  val clock = TrajectoryClock(dt)
+  val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) =>
+                           Timestamped(t, traj.getPoint(t))),
+                         "toPoints")
 
   //filter parameter
   val cov   = Config.cov
-  val covQ = Config.covQ
+  val covQ  = Config.covQ
   val initQ = Config.initQ
 
-
-  val accelerometer = clock.map(Accelerometer(cov))
+  val accelerometer = clock.map(Accelerometer(cov)).latency(dt / 2)
   val gyroscope     = clock.map(Gyroscope(cov, dt))
-  val controlInput  = clock.map(ControlInput(1))
-  val vicon = clock.map(Vicon(cov, covQ))
+  val controlInput  = clock.map(ControlInput(1, cov, dt))
+  val vicon         = clock.map(Vicon(cov, covQ))
 
   lazy val filter: SourceT[Quat] =
-    ParticleFilter(accelerometer, gyroscope, controlInput, vicon, initQ, dt, 4000, cov)
+    ParticleFilter(accelerometer,
+                   gyroscope,
+                   controlInput,
+                   vicon,
+                   initQ,
+                   dt,
+                   400,
+                   cov)
 
   val qs =
     points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
@@ -44,9 +52,9 @@ object DroneParticle extends App {
   }
 
   def printJson() = {
-    val jsonFilter = JsonExport(filter)
-    val printFilter = PrintSink(jsonFilter)
-    sinks ++= Seq(printFilter)
+//    val jsonFilter  = JsonExport(filter)
+//    val printFilter = PrintSink(jsonFilter)
+//    sinks ++= Seq(printFilter)
   }
 
   def figure() = {
@@ -62,8 +70,8 @@ object DroneParticle extends App {
   testTS()
   figure()
 
-  //    awt()
-  //  printJson()
+//  awt()
+  printJson()
 
   Sourcable.drawGraph(sinks)
 

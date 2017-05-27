@@ -10,7 +10,7 @@ case class Plot[A: Data](source: Source[Timestamped[A]])
   def consumeAll() = {
     val data = implicitly[Data[A]]
     val st   = source.stream()
-    val x    = st.map(_.t)
+    val x    = st.map(_.time)
     val y    = st.map(x => data.toValues(x.v))
     val ys   = (0 until y(0).length).map(x => y.map(z => z(x)))
 

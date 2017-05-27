@@ -16,8 +16,10 @@ object DroneComplementary extends App {
 
   implicit val mc = ModelCB[Trajectory]
   //We cache it to showcase Cache that avoids recomputing points each time
-  val clock  = TrajectoryClock(dt)
-  val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) => Timestamped(t, traj.getPoint(t))), "toPoints")
+  val clock = TrajectoryClock(dt)
+  val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) =>
+                           Timestamped(t, traj.getPoint(t))),
+                         "toPoints")
 
   //******* Filter ********
   //Rate at which sensor geenerate data
@@ -26,23 +28,22 @@ object DroneComplementary extends App {
 
   //filter parameter
   val cov   = Config.cov
-  val covQ = Config.covQ
+  val covQ  = Config.covQ
   val initQ = Config.initQ
 
   val alpha = 0.95
 
-
   val accelerometer = clock.map(Accelerometer(cov))
   val gyroscope     = clock.map(Gyroscope(cov, dt))
-  val controlInput  = clock.map(ControlInput(1))
+  val controlInput  = clock.map(ControlInput(1, cov, dt))
 
   lazy val filter: SourceT[Quat] =
-   OrientationComplementaryFilter(accelerometer,
-   gyroscope,
-   controlInput,
-   initQ,
-   alpha,
-   dt)
+    OrientationComplementaryFilter(accelerometer,
+                                   gyroscope,
+                                   controlInput,
+                                   initQ,
+                                   alpha,
+                                   dt)
 
   val lpf = LowPassFilter(filter, Timestamped(initQ), 0.2)
 
@@ -57,9 +58,9 @@ object DroneComplementary extends App {
   }
 
   def printJson() = {
-    val jsonFilter = JsonExport(lpf)
-    val printFilter = PrintSink(jsonFilter)
-    sinks ++= Seq(printFilter)
+//    val jsonFilter  = JsonExport(lpf)
+//    val printFilter = PrintSink(jsonFilter)
+//    sinks ++= Seq(printFilter)
   }
 
   def figure() = {

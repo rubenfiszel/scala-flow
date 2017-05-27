@@ -11,7 +11,7 @@ case class TestTS[A: Data](source1: SourceT[A],
 
   def toInterpolation(l: Array[Timestamped[A]]) = {
     val toV   = implicitly[Data[A]]
-    val ts_x  = DenseVector(l.map(_.t))
+    val ts_x  = DenseVector(l.map(_.time))
     val min   = ts_x.min
     val max   = ts_x.max
     val ts_yt = l.map(x => toV.toValues(x.v))

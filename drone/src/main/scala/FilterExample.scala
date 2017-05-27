@@ -13,9 +13,11 @@ object FilterExample extends App {
 
   val alpha = 0.5
 
-  val clock = Clock(0.1).stop(1)
+  val clock = Clock(0.05).stop(2)
   val ts    = clock.map(Timestamp(1000))
-  val sinus = ts.mapT(x => Quaternion(1.0, 0, 0, 0), "Sinus")
+  val ts2    = clock.map(Timestamp(1300))
+  val fused = ts.fusion(ts2)
+  val sinus = fused.mapT(x => Quaternion(sin(x), cos(x), tan(x), 1/x), "Sinus")
   val filt =
     LowPassFilter(sinus, Timestamped(0, Quaternion(1.0, 0, 0, 0), 0), alpha)
 

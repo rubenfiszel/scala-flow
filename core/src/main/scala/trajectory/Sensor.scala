@@ -48,11 +48,11 @@ object Vicon {
     source.map(Vicon(covP, covQ))
 }
 
-case class ControlInput(std: Real)(implicit val mc: ModelCallBack[Trajectory])
-    extends Sensor[Thrust, Trajectory] {
+case class ControlInput(std: Real, covBR: MatrixR, dt: Timestep)(implicit val mc: ModelCallBack[Trajectory])
+    extends Sensor[(Thrust, BodyRates), Trajectory] {
 
   def generate(traj: Trajectory, t: Time) =
-    Rand.gaussian(traj.getThrust(t), std)
+    (Rand.gaussian(traj.getThrust(t), std), Rand.gaussian(traj.getBodyRates(t, dt), covBR))
 
 }
 

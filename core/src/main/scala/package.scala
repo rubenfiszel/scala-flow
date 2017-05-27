@@ -126,9 +126,10 @@ package object flow {
   }
 
   implicit def tsVecToVec[A: Vec] = new Vec[Timestamped[A]] {
-    def scale(x: Timestamped[A], y: Double) = x.copy(v = x.v * y)
-    def plus(x: Timestamped[A], y: Timestamped[A]) = x.copy(v = x.v + y.v)
-    def minus(x: Timestamped[A], y: Timestamped[A]) = x.copy(v = x.v - y.v)
+    val aVec = implicitly[Vec[A]]
+    def scale(x: Timestamped[A], y: Double) = x.map(z => aVec.scale(z, y))
+    def plus(x: Timestamped[A], y: Timestamped[A]) = x.map(z => aVec.plus(z, y.v))
+    def minus(x: Timestamped[A], y: Timestamped[A]) = x.map(z => aVec.minus(z, y.v))
   }
 
   //********* Utils *************
@@ -170,7 +171,7 @@ package object flow {
       DenseVector(gs(0), gs(1), gs(2))
     }
   }
-
+  
   implicit val encodeDV: Encoder[DenseVector[Real]] = new Encoder[DenseVector[Real]] {
     def apply(x: DenseVector[Real]) =
       Json.fromValues(x.map(y => Json.fromDouble(y).get).toArray)
