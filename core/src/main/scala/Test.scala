@@ -6,8 +6,7 @@ import breeze.interpolation._
 case class TestTS[A: Data](source1: SourceT[A],
                               source2: SourceT[A],
                               nb: Int)
-    extends Sink
-    with Source2T[A, A] {
+    extends SinkBatch2[Timestamped[A], Timestamped[A]] {
 
   def toInterpolation(l: Array[Timestamped[A]]) = {
     val toV   = implicitly[Data[A]]
@@ -21,10 +20,10 @@ case class TestTS[A: Data](source1: SourceT[A],
     (interpolated, min, max)
   }
 
-  def consumeAll() = {
+  def consumeAll(a1: List[Timestamped[A]], a2: List[Timestamped[A]]) = {
 
-    val datasA = source1.stream().toArray
-    val truthA = source2.stream().toArray
+    val datasA = a1.toArray
+    val truthA = a2.toArray
 
     val (datas, minD, maxD) = toInterpolation(datasA)
     val (truth, minT, maxT) = toInterpolation(truthA)

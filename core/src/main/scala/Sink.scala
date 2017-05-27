@@ -1,10 +1,44 @@
 package dawn.flow
 
-
-trait Sink extends Sourcable {
-  def consumeAll(): Unit
+trait Sink1[A] extends Sourcable with Source1[A] {
+  def f(x: A): Unit
+  def listen1(x: => A) = f(x)
 }
 
+trait Accumulate1[A] {
+  var accumulated1 = List[A]()
+  def listen1(x: => A) =
+    accumulated1 ::= x
+}
+
+trait Accumulate2[A, B] extends Accumulate1[A] {
+  var accumulated2 = List[B]()  
+  def listen2(x: => B) =
+    accumulated2 ::= x
+  
+}
+
+trait SinkBatch1[A] extends Sourcable with CloseListener with Accumulate1[A] with Source1[A] {
+
+  def shClose = sh
+
+  def close() =
+    consumeAll(accumulated1)
+
+  def consumeAll(x: List[A]): Unit
+}
+
+trait SinkBatch2[A, B] extends Sourcable with CloseListener with Accumulate2[A, B] with Source2[A, B] {
+
+  def shClose = sh
+
+  def close() =
+    consumeAll(accumulated1, accumulated2)
+
+  def consumeAll(x: List[A], y: List[B]): Unit
+}
+
+/*
 trait SinkP extends Sink {
   def isEmpty: Boolean
   def consume(): Unit
@@ -68,3 +102,4 @@ trait SinkTimestamped[A] extends Sink {
   def f(x: Timestamped[A]): Unit
 
 }
+*/

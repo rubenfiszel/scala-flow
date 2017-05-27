@@ -3,13 +3,11 @@ package dawn.flow
 import breeze.plot._
 import breeze.linalg._
 
-case class Plot[A: Data](source: Source[Timestamped[A]])
-    extends Sink
-    with Source1[Timestamped[A]] {
+case class Plot[A: Data](source1: SourceT[A])
+    extends SinkBatch1[Timestamped[A]] {
 
-  def consumeAll() = {
+  def consumeAll(st: List[Timestamped[A]]) = {
     val data = implicitly[Data[A]]
-    val st   = source.stream()
     val x    = st.map(_.time)
     val y    = st.map(x => data.toValues(x.v))
     val ys   = (0 until y(0).length).map(x => y.map(z => z(x)))
@@ -29,14 +27,10 @@ case class Plot[A: Data](source: Source[Timestamped[A]])
 
 case class Plot2[A: Data](source1: SourceT[A],
                              source2: SourceT[A])
-    extends Sink
-    with Source2T[A, A] {
+    extends SinkBatch2[Timestamped[A], Timestamped[A]] {
 
-  def consumeAll() = {
+  def consumeAll(st: List[Timestamped[A]], st2: List[Timestamped[A]]) = {    
     val data = implicitly[Data[A]]
-
-    val st  = source1.stream()
-    val st2 = source2.stream()
 
     val x  = st.map(_.time)
     val x2 = st2.map(_.time)

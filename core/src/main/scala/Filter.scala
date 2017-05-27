@@ -6,23 +6,24 @@ import spire.algebra.Field
 import breeze.linalg.{norm, normalize, cross}
 
 case class ComplementaryFilter[A: Vec](source1: Source[A],
-                                          source2: Source[A],
-                                          init: A,
-                                          alpha: Real)
-    extends Op2[A, A, A] {
+                                       source2: Source[A],
+                                       init: A,
+                                       alpha: Real)
+    extends Block2[A, A, A] {
 
-  lazy val lpf        = LowPassFilter(source1, init, alpha)
-  lazy val hpf        = HighPassFilter(source2, init, (1 - alpha))
-  lazy val zip        = lpf.zip(hpf)
-  lazy val r          = zip.map(x => x._1 * alpha + x._2 * (1 - alpha))
-  def genStream() = r.stream()
+  def name     = "ComplFilter"
+  lazy val lpf = LowPassFilter(source1, init, alpha)
+  lazy val hpf = HighPassFilter(source2, init, (1 - alpha))
+  lazy val zip = lpf.zip(hpf)
+  lazy val out = zip.map(x => x._1 * alpha + x._2 * (1 - alpha))
 
 }
 
 //https://en.wikipedia.org/wiki/Low-pass_filter
-case class LowPassFilter[A: Vec](source: Source[A], init: A, alpha: Real)
-    extends Op1[A, A] {
-  lazy val bYnm: Source[A] = Buffer(out, init)
+case class LowPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
+    extends Block1[A, A] {
+
+  def name = "LPF"
 
   //y[i] := y[i-1] + α * (x[i] - y[i-1])
   def f(xnYnm: (A, A)) = {
@@ -30,16 +31,15 @@ case class LowPassFilter[A: Vec](source: Source[A], init: A, alpha: Real)
     (xn - ynm) * alpha + ynm
   }
 
-  lazy val out                   = source.zip(bYnm).map(f _)
-  def genStream(): Stream[A] = out.stream()
+  lazy val bYnm: Source[A] = Buffer(out, init, sh)
+  lazy val out             = source1.zip(bYnm).map(f _)
 
 }
 
-case class HighPassFilter[A: Vec](source1: Source[A],
-                                     init: A,
-                                     alpha: Real)
-    extends Op1[A, A] {
+case class HighPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
+    extends Block1[A, A] {
 
+  def name = "HPF"
   def f(xnXnmYnm: (A, (A, A))) = {
     val (xn, (xnm, ynm)) = xnXnmYnm
     val yn               = (xn + ynm - xnm) * alpha
@@ -51,7 +51,7 @@ case class HighPassFilter[A: Vec](source1: Source[A],
 
   val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init))
 
-  def source                     = source1
-  def genStream(): Stream[A] = common.map(_._2).stream()
+  def source = source1
+  val out    = common.map(_._2)
 
 }

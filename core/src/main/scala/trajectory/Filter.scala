@@ -22,8 +22,9 @@ case class OrientationComplementaryFilter(source1: SourceT[Acceleration],
                                           init: Quat,
                                           alpha: Real,
                                           dt: Timeframe)
-    extends Op3T[Acceleration, BodyRates, (Thrust, BodyRates), Quat] {
+    extends Block3T[Acceleration, BodyRates, (Thrust, BodyRates), Quat] {
 
+  def name = "OCF"
   val acc    = source1
   val gyro   = source2
   val thrust = source3.mapT(_._1)
@@ -45,12 +46,11 @@ case class OrientationComplementaryFilter(source1: SourceT[Acceleration],
       "BR2Quat")
   lazy val gyroQuat = gyroQuatLocal.zipT(buffer).mapT(x => x._1.rotateBy(x._2))
 
-  lazy val cf =
+  lazy val out =
     gyroQuat.zip(accQuat).map(ga => ga._1 * alpha + ga._2 * (1 - alpha))
   lazy val buffer: SourceT[Quat] =
-    Buffer(cf, Timestamped(init))
+    Buffer(out, Timestamped(init))
 
-  def genStream() = cf.stream()
 }
 //case class OrientationKalmanFilter(source1: SourceT[Acceleration, Trajectory], source2: SourceT[BodyRates, Trajectory], init: Quaternion[Real], alpha: Real, dt: Timeframe) extends Block2T[Quaternion[Real], Trajectory, Acceleration, BodyRates] {
 
@@ -65,9 +65,10 @@ case class ParticleFilter(source1: SourceT[Acceleration],
                           dt: Timeframe,
                           N: Int,
                           bodyRateStd: DenseMatrix[Real])
-    extends Op4T[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat]
+    extends Block4T[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat]
 {
 
+  def name = "ParticleFilter"
   type Weight = Real
   case class State(w: Weight, q: Quat, br: BodyRates, p: Position, v: Velocity, a: Acceleration)
 
@@ -145,11 +146,10 @@ case class ParticleFilter(source1: SourceT[Acceleration],
     Buffer(fused,
       Timestamped(Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3()))))
 
-  lazy val filter: SourceT[Quat] =
+  lazy val out: SourceT[Quat] =
     fused
       .mapT(_.map(x => (x.w, x.q)))
       .mapT(averageQuaternions)
 
-  def genStream = filter.stream()
 
 }

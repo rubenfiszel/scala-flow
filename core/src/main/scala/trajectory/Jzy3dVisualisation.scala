@@ -8,11 +8,9 @@ import org.jzy3d.maths.{Coord3d, Scale}
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class Jzy3dVisualisation(val source1: SourceT[TrajectoryPoint], val source2: SourceT[Keypoint]) extends Sink with Source2T[TrajectoryPoint, Keypoint] {
+class Jzy3dVisualisation(val source1: SourceT[TrajectoryPoint], kps: List[Timestamped[Keypoint]]) extends SinkBatch1[Timestamped[TrajectoryPoint]] {
 
-  def consumeAll() = {
-
-    val pts   = source1.stream()
+  def consumeAll(pts: List[Timestamped[TrajectoryPoint]]) = {
 
     val chart = AWTChartComponentFactory.chart(Quality.Advanced)    
     val line  = new LineStrip()
@@ -23,8 +21,6 @@ class Jzy3dVisualisation(val source1: SourceT[TrajectoryPoint], val source2: Sou
       line.add(new Point(new Coord3d(p.x, p.y, p.z)))
     }
 
-
-    val kps = source2.stream()
 
     for (kp <- kps.map(_.v.p).filter(_.isDefined).map(_.get)) {
       val sph = new Sphere(new Coord3d(kp.x, kp.y, kp.z), 0.02f, 15, Color.random())

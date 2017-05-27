@@ -89,18 +89,9 @@ trait Trajectory extends Model {
 }
 
 
-case class KeypointSource()(implicit val mc: ModelCallBack[Trajectory]) extends SourceT[Keypoint] with RequireModel[Trajectory]{
-  def sources = List()
-  def genStream() = {
-    var ts = 0.0
-    model.get.keypoints.map { case (kp, tf) => { ts += tf; Timestamped(ts, kp) } }.toStream
-  }
-}
-
-case class TrajectoryClock[M <: Trajectory](dt: Timestep)(implicit val mc: ModelCallBack[M]) extends Source[Time]  with RequireModel[M] {
-  def sources = List()  
-  override def toString = "TrajectoryClock " + dt
-  def genStream() = Clock(dt).takeWhile(_ < model.get.tf).genStream()
+case class TrajectoryClock(dt: Timestep)(implicit val mc: ModelCallBack[Trajectory], val sh: Scheduler) extends EmitterStream[Time] with RequireModel[Trajectory] {
+  def name = "TrajectoryClock " + dt
+  def stream() = Clock.genPerfectTimes(dt).takeWhile(_ < model.get.tf).map(x => (x, x))
 }
 
 @JsonCodec

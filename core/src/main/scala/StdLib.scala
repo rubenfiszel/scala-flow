@@ -9,62 +9,47 @@ case class LambdaWithModel[A, B, M](f: (A, M) => B, name: String = "")(implicit 
 }
 
 
-class StdLibSource[A](source: Source[A]) {
-
-  def cache() = Cache(source)
-
-  def buffer(init: A) = Buffer(source, init)
-}
-
-case class Clock(dt: Timestep) extends Source[Time]  {
-  override def toString = "Clock " + dt 
-  def sources = List()
-  def genStream() = genPerfectTimes(dt)
+object Clock {
 
   def genPerfectTimes(dt: Timestep): Stream[Time] = {
     def genTime(i: Long): Stream[Time] = (dt * i) #:: genTime(i + 1)
     genTime(0)
   }
-  
+
+}
+case class Clock(dt: Timestep, tf: Timeframe)(implicit val sh: Scheduler) extends EmitterStream[Time] {
+
+  def name = "Clock " + dt 
+  def stream() = 
+    Clock.genPerfectTimes(dt).takeWhile(_ < tf).map(x => (x, x))
 
 }
 
 
 //Case class and not function because A is a type parameter not known in advance
-case class Integrate[A: Vec](source: Source[A], dt: Timestep) extends Op1[A, A] {
-  def genStream() = source.map((x: A) => x*dt).stream()
+case class Integrate[A: Vec](source1: Source[A], dt: Timestep) extends Op1[A, A] {
+  def name = "Integrate " + dt
+  def listen1(x: => A) =
+    broadcast(x*dt)
 }
 
-case class Timestamp(scale: Real)  extends NamedFunction( (x: Time) => Timestamped(x, x*scale, 0), "Timestamp")
+case class Timestamp(scale: Real)  extends NamedFunction( (x: Time) => Timestamped(x, x*scale), "Timestamp")
 
-trait Buffer[A] extends Op1[A, A]  {
-
-//  lazy val source: Source[A,B] = source1()
-//  override lazy val sources = List(source)
-  override def toString = "Buffer"
+trait Buffer[A] extends Op1[A, A] {
+  def name = "Buffer"
   def init: A
-  def genStream() = init #:: source.stream()
-
+  sh.registerEvent(broadcast(init), -1)
+  def listen1(x: => A) = 
+    broadcast(x)
 }
 
 //Need companion object for call-by-name evaluation of source1
 //Case classes don't support call-by-name
 object Buffer {
-  def apply[A](source1: => Source[A], init1: A) = new Buffer[A] {
+  def apply[A](source11: => Source[A], init1: A, sh1: Scheduler = ???) = new Buffer[A] {
+    override def sh = sh1
     val init = init1
-    def source = source1
+    def source1 = source11
   }
 }
 
-case class Cache[A](source: Source[A]) extends Op1[A, A] {
-
-  def genStream() = source.stream()
-
-  override def stream() = {
-    if (!cStream.isDefined) {
-      cStream = Some(genStream())
-    }
-    cStream.get
-  }
-  
-}

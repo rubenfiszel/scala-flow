@@ -7,6 +7,7 @@ import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
+/*
 object DroneParticle extends App {
 
   //****** Model ******
@@ -79,3 +80,6 @@ object DroneParticle extends App {
   sim.run(traj)
 
 }
+
+*/
+*/

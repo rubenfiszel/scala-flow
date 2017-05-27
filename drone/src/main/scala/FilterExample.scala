@@ -10,24 +10,22 @@ import spire.implicits._
 object FilterExample extends App {
   
   implicit val mc = new ModelCallBack[Trajectory]()
+  implicit val sh = new Scheduler {}
 
   val alpha = 0.5
 
-  val clock = Clock(0.05).stop(2)
+  val clock: Source[Time] = Clock(0.05, 2)
   val ts    = clock.map(Timestamp(1000))
   val ts2    = clock.map(Timestamp(1300))
   val fused = ts.fusion(ts2)
-  val sinus = fused.mapT(x => Quaternion(sin(x), cos(x), tan(x), 1/x), "Sinus")
+  val sinus: SourceT[Quat] = fused.mapT(x => Quaternion(sin(x), cos(x), tan(x), 1/(x+0.000001)), "Sinus")
   val filt =
-    LowPassFilter(sinus, Timestamped(0, Quaternion(1.0, 0, 0, 0), 0), alpha)
+    LowPassFilter(sinus, Timestamped(0, Quaternion(1.0, 0, 0, 0)), alpha)
 
   val plot = Plot(filt)
 
-  val sinks = Seq(plot)
+  sh.run()
 
-  val sim = Simulation(sinks)
-  sim.run(null)
-
-  Sourcable.drawGraph(sinks)
+  Sourcable.drawGraph(Seq(plot))
 
 }

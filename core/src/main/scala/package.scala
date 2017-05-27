@@ -43,7 +43,8 @@ package object flow {
 
   //Less Timestamped boilerplate
   type SourceT[A] = Source[Timestamped[A]]
-
+  type ListT[A] = List[Timestamped[A]]
+  
   type Source1T[A] = Source1[Timestamped[A]]
   type Source2T[A, B] = Source2[Timestamped[A], Timestamped[B]]
   type Source3T[A, B, C] = Source3[Timestamped[A], Timestamped[B], Timestamped[C]]      
@@ -56,12 +57,14 @@ package object flow {
     Op3[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D]]    
   type Op4T[A, B, C, D, E] =
     Op4[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D], Timestamped[E]]    
-  
 
-
-  //A Stream doesn't HAVE TO be a scala stream, it just happen to be
-  type Stream[A] = scala.Stream[A]
-
+  type Block1T[A, B] = Block1[Timestamped[A], Timestamped[B]]
+  type Block2T[A, B, C] =
+    Block2[Timestamped[A], Timestamped[B], Timestamped[C]]
+  type Block3T[A, B, C, D] =
+    Block3[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D]]    
+  type Block4T[A, B, C, D, E] =
+    Block4[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D], Timestamped[E]]    
 
   //******* Data (as in transformable in array of Real **********
 
@@ -86,9 +89,6 @@ package object flow {
   implicit def toStreamSource[A](
       s: Source[Stream[A]]): StreamSource[A] =
     new StreamSource(s)
-
-  implicit def toStdLibSource[A](s: Source[A]): StdLibSource[A] =
-    new StdLibSource(s)
 
 
   //***** Vec (as in some Ops common in "vectors". Scalars are 1D vectors)

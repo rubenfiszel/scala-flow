@@ -6,7 +6,7 @@ import breeze.linalg._
 import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
-
+/*
 object DroneComplementary extends App {
 
   //****** Model ******
@@ -85,3 +85,6 @@ object DroneComplementary extends App {
   sim.run(traj)
 
 }
+*/
+*/
+*/
