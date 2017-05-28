@@ -2,26 +2,14 @@ package dawn.flow
 
 import io.circe.generic.JsonCodec
 
-trait Timestamped[A] {
-  self =>
-  def v: A
-  def time: Time
-  def map[B](f: A => B) = Timestamped[B](time, f(v))
-  def addLatency(dt: Time) = Timestamped[A](time + dt, v)
-  override def toString = s"TS($time, $v)"
+case class Timestamped[A](time: Time, v: A) {
+  def map[B](f: A => B) = Timestamped(time, f(v))
+  def addLatency(dt: Time): Timestamped[A] = ???
 }
 
 object Timestamped {
-
-  def apply[A](t1: Time, v1: => A): Timestamped[A] = new Timestamped[A] {
-    lazy val v = v1
-    def time = t1
-  }
-
-  def apply[A](v1: => A): Timestamped[A] = apply(0, v1)
-
+  def apply[A](x: A): Timestamped[A] = Timestamped(0, x)
 }
-
 
 class TimestampedSource[A](source: Source[Timestamped[A]]) {
 

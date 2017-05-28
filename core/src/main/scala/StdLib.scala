@@ -46,7 +46,7 @@ trait Buffer[A] extends Op1[A, A] {
 //Need companion object for call-by-name evaluation of source1
 //Case classes don't support call-by-name
 object Buffer {
-  def apply[A](source11: => Source[A], init1: A, sh1: Scheduler = ???) = new Buffer[A] {
+  def apply[A](source11: => Source[A], init1: A, sh1: Scheduler) = new Buffer[A] {
     override def sh = sh1
     val init = init1
     def source1 = source11

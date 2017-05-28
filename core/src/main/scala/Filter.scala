@@ -49,7 +49,7 @@ case class HighPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
   lazy val common =
     source.zip(bXnmYnm).map(f _)
 
-  val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init))
+  val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init), sh)
 
   def source = source1
   val out    = common.map(_._2)

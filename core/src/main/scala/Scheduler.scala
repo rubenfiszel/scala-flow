@@ -44,7 +44,7 @@ trait Scheduler {
 
 trait EmitterStream[A] extends Source[A] with Source0 with Resettable {
   def stream(): Stream[(Time, A)]
-  var iterator = stream().toIterator
+  var iterator: Iterator[(Time, A)] =_
 
   def registerNext(): Unit = {
     if (iterator.hasNext) {
@@ -53,6 +53,7 @@ trait EmitterStream[A] extends Source[A] with Source0 with Resettable {
       sh.registerEvent(registerNext(), t)
     }
   }
+  sh.registerEvent({iterator = stream().toIterator}, -2)
   sh.registerEvent(registerNext(), -1)
 
   def reset() = {

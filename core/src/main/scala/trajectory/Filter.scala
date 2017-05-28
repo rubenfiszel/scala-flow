@@ -49,7 +49,7 @@ case class OrientationComplementaryFilter(source1: SourceT[Acceleration],
   lazy val out =
     gyroQuat.zip(accQuat).map(ga => ga._1 * alpha + ga._2 * (1 - alpha))
   lazy val buffer: SourceT[Quat] =
-    Buffer(out, Timestamped(init))
+    Buffer(out, Timestamped(init), sh)
 
 }
 //case class OrientationKalmanFilter(source1: SourceT[Acceleration, Trajectory], source2: SourceT[BodyRates, Trajectory], init: Quaternion[Real], alpha: Real, dt: Timeframe) extends Block2T[Quaternion[Real], Trajectory, Acceleration, BodyRates] {
@@ -126,9 +126,11 @@ case class ParticleFilter(source1: SourceT[Acceleration],
       .normalized
   }
 
+  var i = 0
   //TODO HANDLE DIFFERENT INITIAL POSSIBLE POSITIONS + resample + accelerometer for attitude + vicon + integrate acceleration
   lazy val particlesGyro: SourceT[Seq[State]] =
     source2
+//      .map(x => {i+= 1; println(i); x})
       .zipLastT(buffer)
       .mapT(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
 
@@ -144,7 +146,7 @@ case class ParticleFilter(source1: SourceT[Acceleration],
 
   lazy val buffer: SourceT[Seq[State]] =
     Buffer(fused,
-      Timestamped(Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3()))))
+      Timestamped(Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3()))), sh)
 
   lazy val out: SourceT[Quat] =
     fused

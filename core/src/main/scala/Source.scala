@@ -22,14 +22,29 @@ trait Source[A] extends Sourcable {
   def filter(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def source1 = parent
-      def listen1(x: => A) =
-        if (b(x))
-          broadcast(x)
+      def listen1(x: => A) = {
+        val eX = x
+        if (b(eX))
+          broadcast(eX)
+      }
 
       def name                  = "Filter " + getStrOrElse(name1, b.toString)
       override def requireModel = RequireModel.isRequiring(b)
     }
 
+  def foreach(f: A => Unit, name1: String = ""): Source[A] =
+    new Op1[A, A] {
+      def source1 = parent
+      def listen1(x: => A) = {
+        val eX = x
+        f(eX)
+        broadcast(eX)
+      }
+
+      def name                  = "Foreach " + getStrOrElse(name1, f.toString)
+      override def requireModel = RequireModel.isRequiring(f)
+    }
+  
   def takeWhile(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def source1 = parent
@@ -42,11 +57,12 @@ trait Source[A] extends Sourcable {
       override def requireModel = RequireModel.isRequiring(b)
     }
 
-  def map[C](f: (A) => C, name1: String = ""): Source[C] =
-    new Op1[A, C] {
+  def map[B](f: A => B, name1: String = ""): Source[B] =
+    new Op1[A, B] {
       def source1 = parent
       def listen1(x: => A) = {
-        broadcast(f(x))
+        val mx = f(x)
+        broadcast(mx)
       }
 
       def name                  = "Map " + getStrOrElse(name1, f.toString)

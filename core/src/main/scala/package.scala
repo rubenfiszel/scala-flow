@@ -44,7 +44,7 @@ package object flow {
   //Less Timestamped boilerplate
   type SourceT[A] = Source[Timestamped[A]]
   type ListT[A] = List[Timestamped[A]]
-  
+
   type Source1T[A] = Source1[Timestamped[A]]
   type Source2T[A, B] = Source2[Timestamped[A], Timestamped[B]]
   type Source3T[A, B, C] = Source3[Timestamped[A], Timestamped[B], Timestamped[C]]      

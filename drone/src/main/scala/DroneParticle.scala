@@ -7,7 +7,7 @@ import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
-/*
+
 object DroneParticle extends App {
 
   //****** Model ******
@@ -16,6 +16,7 @@ object DroneParticle extends App {
   val traj = TrajFactory.generate()
 
   implicit val mc = ModelCB[Trajectory]
+  implicit val sh = new Scheduler {}
 
   val clock = TrajectoryClock(dt)
   val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) =>
@@ -27,11 +28,12 @@ object DroneParticle extends App {
   val covQ  = Config.covQ
   val initQ = Config.initQ
 
-  val accelerometer = clock.map(Accelerometer(cov)).latency(dt / 2)
+  
+  val accelerometer = clock.map(Accelerometer(cov))
   val gyroscope     = clock.map(Gyroscope(cov, dt))
   val controlInput  = clock.map(ControlInput(1, cov, dt))
   val vicon         = clock.map(Vicon(cov, covQ))
-
+  
   lazy val filter: SourceT[Quat] =
     ParticleFilter(accelerometer,
                    gyroscope,
@@ -45,17 +47,17 @@ object DroneParticle extends App {
   val qs =
     points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
 
-  var sinks: Seq[Sink] = Seq()
+  var sinks: Seq[Sourcable] = Seq()
 
   def awt() = {
-    val vis = new Jzy3dVisualisation(points, KeypointSource())
-    sinks ++= Seq(vis)
+//    val vis = new Jzy3dVisualisation(points, KeypointSource())
+//    sinks ++= Seq(vis)
   }
 
   def printJson() = {
 //    val jsonFilter  = JsonExport(filter)
-//    val printFilter = PrintSink(jsonFilter)
-//    sinks ++= Seq(printFilter)
+    val printFilter = PrintSink(filter)
+    sinks ++= Seq(printFilter)
   }
 
   def figure() = {
@@ -72,14 +74,16 @@ object DroneParticle extends App {
   figure()
 
 //  awt()
-  printJson()
+//  printJson()
 
-  Sourcable.drawGraph(sinks)
+  mc(traj)
 
-  val sim = Simulation(sinks, SimpleScheduler)
-  sim.run(traj)
+  Sourcable.drawGraph(sinks)    
+  sh.run()
+
+
 
 }
 
-*/
-*/
+
+
