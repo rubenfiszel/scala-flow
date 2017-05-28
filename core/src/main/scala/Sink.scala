@@ -2,18 +2,18 @@ package dawn.flow
 
 trait Sink1[A] extends Sourcable with Source1[A] {
   def f(x: A): Unit
-  def listen1(x: => A) = f(x)
+  def listen1(x: A) = f(x)
 }
 
 trait Accumulate1[A] {
   var accumulated1 = List[A]()
-  def listen1(x: => A) =
+  def listen1(x: A) =
     accumulated1 ::= x
 }
 
 trait Accumulate2[A, B] extends Accumulate1[A] {
   var accumulated2 = List[B]()  
-  def listen2(x: => B) =
+  def listen2(x: B) =
     accumulated2 ::= x
   
 }

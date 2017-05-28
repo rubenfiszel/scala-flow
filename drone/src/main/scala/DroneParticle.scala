@@ -29,7 +29,7 @@ object DroneParticle extends App {
   val initQ = Config.initQ
 
   
-  val accelerometer = clock.map(Accelerometer(cov))
+  val accelerometer = clock.map(Accelerometer(cov)).latency(dt/2)
   val gyroscope     = clock.map(Gyroscope(cov, dt))
   val controlInput  = clock.map(ControlInput(1, cov, dt))
   val vicon         = clock.map(Vicon(cov, covQ))
@@ -41,7 +41,7 @@ object DroneParticle extends App {
                    vicon,
                    initQ,
                    dt,
-                   400,
+                   4000,
                    cov)
 
   val qs =

@@ -13,7 +13,7 @@ import io.circe._
 package object flow {
 
   //Common seed 
-  val Random = RandBasis.withSeed(12345)
+  val Random = RandBasis.withSeed(1234567)
 
 
   //Common type aliases

@@ -14,4 +14,14 @@ class TimeSource(source: Source[Time]) {
   def stop(tf: Timeframe) =
     source.takeWhile(_ < tf, "Stop")
    */
+  def latency(dt: Time) =
+    new Op1[Time, Time] {
+      def source1 = source
+      def listen1(x: Time) = {
+        broadcast(x + dt, dt)
+      }
+
+      def name                  = "Latency " + dt
+    }
+
 }

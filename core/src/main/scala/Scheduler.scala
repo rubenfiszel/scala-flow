@@ -11,6 +11,11 @@ trait CloseListener {
   shClose.addCloseListener(self)
 }
 
+object Scheduler {
+  val BEFORE_START = -3
+  val AT_START = 0
+}
+
 trait Scheduler {
 
   var closeListeners = List[CloseListener]()
@@ -22,21 +27,32 @@ trait Scheduler {
 
   val pq = PriorityQueue[Event]()
 
-//  def registerEvent(f: () => Unit, t: Time): Unit =
-//    pq.enqueue(Event(t, f))
+
+  var now =
+     0.0
 
   def registerEvent(f: => Unit, t: Time): Unit = {
-//    println("ENQUEUE" +t)
     pq.enqueue(Event(t, () => f))
   }
 
+  def executeBeforeStart(f: => Unit): Unit = {
+    registerEvent(f, Scheduler.BEFORE_START)
+  }
+
+  def executeAtStart(f: => Unit): Unit = {
+    registerEvent(f, Scheduler.AT_START)
+  }
+
+  def executeIn(f: => Unit, dt: Time = 0.0): Unit = {
+    registerEvent(f, now + dt)
+  }
+  
   
   def run() = {
     while (!pq.isEmpty) {
       val dq = pq.dequeue
-      val f = dq.f
-//      println("DEQEUE " + dq.t)      
-      f()
+      now = dq.t
+      dq.f()
     }
     closeListeners.foreach(_.close())
   }
@@ -47,14 +63,15 @@ trait EmitterStream[A] extends Source[A] with Source0 with Resettable {
   var iterator: Iterator[(Time, A)] =_
 
   def registerNext(): Unit = {
-    if (iterator.hasNext) {
+    if (iterator.hasNext) { 
       val (t, a) = iterator.next
-      broadcast(a, t)
+      broadcast(a)      
       sh.registerEvent(registerNext(), t)
     }
   }
-  sh.registerEvent({iterator = stream().toIterator}, -2)
-  sh.registerEvent(registerNext(), -1)
+
+  sh.executeBeforeStart({iterator = stream().toIterator})
+  sh.executeAtStart(registerNext())
 
   def reset() = {
     iterator = stream.toIterator

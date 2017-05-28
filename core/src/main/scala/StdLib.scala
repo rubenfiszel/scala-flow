@@ -29,7 +29,7 @@ case class Clock(dt: Timestep, tf: Timeframe)(implicit val sh: Scheduler) extend
 //Case class and not function because A is a type parameter not known in advance
 case class Integrate[A: Vec](source1: Source[A], dt: Timestep) extends Op1[A, A] {
   def name = "Integrate " + dt
-  def listen1(x: => A) =
+  def listen1(x: A) =
     broadcast(x*dt)
 }
 
@@ -38,8 +38,8 @@ case class Timestamp(scale: Real)  extends NamedFunction( (x: Time) => Timestamp
 trait Buffer[A] extends Op1[A, A] {
   def name = "Buffer"
   def init: A
-  sh.registerEvent(broadcast(init), -1)
-  def listen1(x: => A) = 
+  sh.executeAtStart(broadcast(init))
+  def listen1(x: A) = 
     broadcast(x)
 }
 

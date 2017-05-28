@@ -130,7 +130,6 @@ case class ParticleFilter(source1: SourceT[Acceleration],
   //TODO HANDLE DIFFERENT INITIAL POSSIBLE POSITIONS + resample + accelerometer for attitude + vicon + integrate acceleration
   lazy val particlesGyro: SourceT[Seq[State]] =
     source2
-//      .map(x => {i+= 1; println(i); x})
       .zipLastT(buffer)
       .mapT(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
 
@@ -138,6 +137,7 @@ case class ParticleFilter(source1: SourceT[Acceleration],
     source1
       .zipLastT(buffer)
       .mapT(_._2)
+
 
   lazy val fused =
     particlesGyro

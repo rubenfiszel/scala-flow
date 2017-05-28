@@ -22,10 +22,9 @@ trait Source[A] extends Sourcable {
   def filter(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def source1 = parent
-      def listen1(x: => A) = {
-        val eX = x
-        if (b(eX))
-          broadcast(eX)
+      def listen1(x: A) = {
+        if (b(x))
+          broadcast(x)
       }
 
       def name                  = "Filter " + getStrOrElse(name1, b.toString)
@@ -35,10 +34,9 @@ trait Source[A] extends Sourcable {
   def foreach(f: A => Unit, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def source1 = parent
-      def listen1(x: => A) = {
-        val eX = x
-        f(eX)
-        broadcast(eX)
+      def listen1(x: A) = {
+        f(x)
+        broadcast(x)
       }
 
       def name                  = "Foreach " + getStrOrElse(name1, f.toString)
@@ -48,7 +46,7 @@ trait Source[A] extends Sourcable {
   def takeWhile(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def source1 = parent
-      def listen1(x: => A) = {
+      def listen1(x: A) = {
         if (b(x))
           broadcast(x)
       }
@@ -60,7 +58,7 @@ trait Source[A] extends Sourcable {
   def map[B](f: A => B, name1: String = ""): Source[B] =
     new Op1[A, B] {
       def source1 = parent
-      def listen1(x: => A) = {
+      def listen1(x: A) = {
         val mx = f(x)
         broadcast(mx)
       }
@@ -72,7 +70,7 @@ trait Source[A] extends Sourcable {
   def flatMap[C](f: (A) => List[C], name1: String = ""): Source[C] =
     new Op1[A, C] {
       def source1 = parent
-      def listen1(x: => A) = {
+      def listen1(x: A) = {
         f(x).foreach(x => broadcast(x))
       }
 
@@ -86,7 +84,7 @@ trait Source[A] extends Sourcable {
     new Op1[A, A] {
       def source1 = parent
       var i       = 0
-      def listen1(x: => A) = {
+      def listen1(x: A) = {
         i += 1
         if (i % n == 0)
           broadcast(x)
@@ -98,23 +96,23 @@ trait Source[A] extends Sourcable {
     new Op2[A, B, (A, B)] {
       def source1            = parent
       def source2            = s2
-      val q1: Queue[() => A] = Queue()
-      val q2: Queue[() => B] = Queue()
-      def listen1(x: => A) = {
+      val q1: Queue[A] = Queue()
+      val q2: Queue[B] = Queue()
+      def listen1(x: A) = {
         if (q2.isEmpty)
-          q1.enqueue(() => x)
+          q1.enqueue(x)
         else {
           val dq = q2.dequeue()
-          broadcast((x, dq()))
+          broadcast((x, dq))
         }
       }
 
-      def listen2(x: => B) = {
+      def listen2(x: B) = {
         if (q1.isEmpty)
-          q2.enqueue(() => x)
+          q2.enqueue(x)
         else {
           val dq = q1.dequeue()          
-          broadcast((dq(), x))
+          broadcast((dq, x))
         }
       }
 
@@ -125,24 +123,24 @@ trait Source[A] extends Sourcable {
         new Op2[A, B, (A, B)] {
       def source1            = parent
       def source2            = s2
-      val q1: Queue[() => A] = Queue()
-      var lastB: Option[() => B] = None
-      def listen1(x: => A) = {
+      val q1: Queue[A] = Queue()
+      var lastB: Option[B] = None
+      def listen1(x: A) = {
         if (lastB.isEmpty)
-          q1.enqueue(() => x)
+          q1.enqueue(x)
         else {
           val lB = lastB.get
           lastB = None
-          broadcast((x, lB()))
+          broadcast((x, lB))
         }
       }
 
-      def listen2(x: => B) = {
+      def listen2(x: B) = {
         if (q1.isEmpty)
-          lastB = Some(() => x)
+          lastB = Some(x)
         else {
           val dq = q1.dequeue()                    
-          broadcast((dq(), x))
+          broadcast((dq, x))
           lastB = None
         }
       }
@@ -155,10 +153,10 @@ trait Source[A] extends Sourcable {
     new Op2[A, B, Either[A, B]] {
       def source1 = parent
       def source2 = s2
-      def listen1(x: => A) =
+      def listen1(x: A) =
         broadcast(Left(x))
 
-      def listen2(x: => B) =
+      def listen2(x: B) =
         broadcast(Right(x))
 
       def name = "Merge"
@@ -185,25 +183,24 @@ trait Source1[A] extends Sourcable {
   def sh: Scheduler = source1.sh
   def source1: Source[A]
   lazy val sources: List[Source[_]] = List(source1)
-  def listen1(x: => A)
-  sh.registerEvent(source1.addChannel(Channel1(self, sh)), -2)
+  def listen1(x: A)
+  sh.executeBeforeStart(source1.addChannel(Channel1(self, sh)))
 }
 
 trait Source2[A, B] extends Source1[A] {
   self =>
   def source2: Source[B]
   override lazy val sources: List[Source[_]] = List(source1, source2)
-  def listen2(x: => B)
-  sh.registerEvent(source2.addChannel(Channel2(self, sh)), -2)  
-//  source2.addChannel(Channel2(this, sh))    
+  def listen2(x: B)
+  sh.executeBeforeStart(source2.addChannel(Channel2(self, sh)))
 }
 
 trait Source3[A, B, C] extends Source2[A, B] {
   self =>
   def source3: Source[C]
   override lazy val sources: List[Source[_]] = List(source1, source2, source3)
-  def listen3(x: => C)
-  sh.registerEvent(source3.addChannel(Channel3(self, sh)), -2)    
+  def listen3(x: C)
+  sh.executeBeforeStart(source3.addChannel(Channel3(self, sh)))
 }
 
 trait Source4[A, B, C, D] extends Source3[A, B, C] {
@@ -211,8 +208,8 @@ trait Source4[A, B, C, D] extends Source3[A, B, C] {
   def source4: Source[D]
   override lazy val sources: List[Source[_]] =
     List(source1, source2, source3, source4)
-  def listen4(x: => D)
-  sh.registerEvent(source4.addChannel(Channel4(self, sh)), -2)      
+  def listen4(x: D)
+  sh.executeBeforeStart(source4.addChannel(Channel4(self, sh)))
 }
 
 trait Block[A] {
@@ -221,32 +218,32 @@ trait Block[A] {
 
   new Op1[A, A] {
     def source1 = out
-    def listen1(x: => A) = 
+    def listen1(x: A) = 
       parent.broadcast(x)
     def name = "Op Block"
   }
 }
 
 trait Block1[A, B]       extends Source[B] with Source1[A] with Block[B] {
-  def listen1(x: => A) = ()
+  def listen1(x: A) = ()
 }
 trait Block2[A, B, C]    extends Source[C] with Source2[A, B] with Block[C] {
-  def listen1(x: => A) = ()  
-  def listen2(x: => B) = ()
+  def listen1(x: A) = ()  
+  def listen2(x: B) = ()
 }
 trait Block3[A, B, C, D] extends Source[D] with Source3[A, B, C] with Block[D] {
-  def listen1(x: => A) = ()
-  def listen2(x: => B) = ()  
-  def listen3(x: => C) = ()  
+  def listen1(x: A) = ()
+  def listen2(x: B) = ()  
+  def listen3(x: C) = ()  
 }
 trait Block4[A, B, C, D, E]
     extends Source[E]
     with Source4[A, B, C, D]
     with Block[E] {
-  def listen1(x: => A) = ()
-  def listen2(x: => B) = ()
-  def listen3(x: => C) = ()    
-  def listen4(x: => D) = ()
+  def listen1(x: A) = ()
+  def listen2(x: B) = ()
+  def listen3(x: C) = ()    
+  def listen4(x: D) = ()
 }
 
 trait Op1[A, B] extends Source[B] with Source1[A]
@@ -255,27 +252,27 @@ trait Op3[A, B, C, D] extends Source[D] with Source3[A, B, C]
 trait Op4[A, B, C, D, E] extends Source[E] with Source4[A, B, C, D]
 
 sealed trait Channel[A] {
-  def push(x: => A, t: Time): Unit
+  def push(x: A, dt: Time): Unit
 }
 
 case class Channel1[A](receiver: Source1[A], sh: Scheduler)
     extends Channel[A] {
-  def push(x: => A, t: Time) = sh.registerEvent(receiver.listen1(x), t)
+  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen1(x), dt)
 }
 
 case class Channel2[A](receiver: Source2[_, A], sh: Scheduler)
     extends Channel[A] {
-  def push(x: => A, t: Time) = sh.registerEvent(receiver.listen2(x), t)
+  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen2(x), dt)
 }
 
 case class Channel3[A](receiver: Source3[_, _, A], sh: Scheduler)
     extends Channel[A] {
-  def push(x: => A, t: Time) = sh.registerEvent(receiver.listen3(x), t)
+  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen3(x), dt)
 }
 
 case class Channel4[A](receiver: Source4[_, _, _, A], sh: Scheduler)
     extends Channel[A] {
-  def push(x: => A, t: Time) = sh.registerEvent(receiver.listen4(x), t)
+  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen4(x), dt)
 }
 
 trait Resettable {

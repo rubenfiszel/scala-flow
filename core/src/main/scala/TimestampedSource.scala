@@ -4,14 +4,14 @@ import io.circe.generic.JsonCodec
 
 case class Timestamped[A](time: Time, v: A) {
   def map[B](f: A => B) = Timestamped(time, f(v))
-  def addLatency(dt: Time): Timestamped[A] = ???
+  def addLatency(dt: Time): Timestamped[A] = copy(time = this.time + dt)
 }
 
 object Timestamped {
   def apply[A](x: A): Timestamped[A] = Timestamped(0, x)
 }
 
-class TimestampedSource[A](source: Source[Timestamped[A]]) {
+class TimestampedSource[A](source: SourceT[A]) {
 
   def mapT[B](f: (A) => B, name: String = ""): SourceT[B] =
     source.map(
@@ -25,10 +25,15 @@ class TimestampedSource[A](source: Source[Timestamped[A]]) {
   def zipLastT[C](s2: SourceT[C]) =
     source.zipLast(s2).map(x => Timestamped(x._1.time, (x._1.v, x._2.v)), "ZipLastT")
 
-  def latency(dt1: Timestep) =
-    source.map(
-      (x: Timestamped[A]) => x.addLatency(dt1),
-                     "Latency " + dt1)
+
+  def latency(dt: Time) =
+    new Op1T[A, A] {
+      def source1 = source
+      def listen1(x: Timestamped[A]) = {
+        broadcast(x.addLatency(dt), dt)
+      }
+      def name                  = "LatencyT " + dt
+    }
 
 
   def toTime =
