@@ -12,6 +12,10 @@ trait Trajectory extends Model {
   def keypoints: List[(Keypoint, Timeframe)]
   def gravity: Vec3
 
+  def getKeypoints = {
+    var t = 0.0
+    keypoints.map(x => {t += x._2; Timestamped(t, x._1 )})
+  }
   def getPosition(t: Time): Position
 
   def getVelocity(t: Time): Velocity

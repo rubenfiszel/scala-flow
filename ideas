@@ -15,6 +15,9 @@
 - rename C into B
 - rename Quaternion Real into Quat
 
+- replay for fusion between scheduler
+(If different scheduler in Source, create replay node)
+
 - scalameta to name anon function
 - images in REPL or javascript images
 

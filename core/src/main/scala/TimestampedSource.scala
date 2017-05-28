@@ -2,6 +2,7 @@ package dawn.flow
 
 import io.circe.generic.JsonCodec
 
+@JsonCodec
 case class Timestamped[A](time: Time, v: A) {
   def map[B](f: A => B) = Timestamped(time, f(v))
   def addLatency(dt: Time): Timestamped[A] = copy(time = this.time + dt)

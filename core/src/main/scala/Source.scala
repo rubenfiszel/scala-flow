@@ -2,22 +2,24 @@ package dawn.flow
 
 import collection.mutable.Queue
 
-trait Source[A] extends Sourcable {
-  parent =>
+trait Source[A] extends Sourcable { parent =>
   private var channels = List[Channel[A]]()
 
   def sh: Scheduler
 
   def name: String
 
-  def addChannel(c: Channel[A]) = 
+  def addChannel(c: Channel[A]) =
     channels ::= c
-  
 
   def broadcast(x: => A, t: Time = -1) =
     channels.foreach(_.push(x, t))
 
   override def toString = name
+
+  def replay(sh2: Scheduler) = {
+    ???
+  }
 
   def filter(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
@@ -42,7 +44,7 @@ trait Source[A] extends Sourcable {
       def name                  = "Foreach " + getStrOrElse(name1, f.toString)
       override def requireModel = RequireModel.isRequiring(f)
     }
-  
+
   def takeWhile(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def source1 = parent
@@ -78,7 +80,6 @@ trait Source[A] extends Sourcable {
       override def requireModel = RequireModel.isRequiring(f)
     }
 
-  
   //Divide the frequency of the stream by n
   def divider(n: Int) =
     new Op1[A, A] {
@@ -94,8 +95,8 @@ trait Source[A] extends Sourcable {
 
   def zip[B](s2: Source[B]) =
     new Op2[A, B, (A, B)] {
-      def source1            = parent
-      def source2            = s2
+      def source1      = parent
+      def source2      = s2
       val q1: Queue[A] = Queue()
       val q2: Queue[B] = Queue()
       def listen1(x: A) = {
@@ -111,7 +112,7 @@ trait Source[A] extends Sourcable {
         if (q1.isEmpty)
           q2.enqueue(x)
         else {
-          val dq = q1.dequeue()          
+          val dq = q1.dequeue()
           broadcast((dq, x))
         }
       }
@@ -120,10 +121,10 @@ trait Source[A] extends Sourcable {
     }
 
   def zipLast[B](s2: Source[B]): Source[(A, B)] =
-        new Op2[A, B, (A, B)] {
-      def source1            = parent
-      def source2            = s2
-      val q1: Queue[A] = Queue()
+    new Op2[A, B, (A, B)] {
+      def source1          = parent
+      def source2          = s2
+      val q1: Queue[A]     = Queue()
       var lastB: Option[B] = None
       def listen1(x: A) = {
         if (lastB.isEmpty)
@@ -139,7 +140,7 @@ trait Source[A] extends Sourcable {
         if (q1.isEmpty)
           lastB = Some(x)
         else {
-          val dq = q1.dequeue()                    
+          val dq = q1.dequeue()
           broadcast((dq, x))
           lastB = None
         }
@@ -148,7 +149,6 @@ trait Source[A] extends Sourcable {
       def name = "ZipLast"
     }
 
-  
   def merge[B](s2: Source[B]): Source[Either[A, B]] =
     new Op2[A, B, Either[A, B]] {
       def source1 = parent
@@ -178,8 +178,7 @@ trait Source0 extends Sourcable {
   lazy val sources: List[Source[_]] = List()
 }
 
-trait Source1[A] extends Sourcable {
-  self => 
+trait Source1[A] extends Sourcable { self =>
   def sh: Scheduler = source1.sh
   def source1: Source[A]
   lazy val sources: List[Source[_]] = List(source1)
@@ -187,54 +186,62 @@ trait Source1[A] extends Sourcable {
   sh.executeBeforeStart(source1.addChannel(Channel1(self, sh)))
 }
 
-trait Source2[A, B] extends Source1[A] {
-  self =>
+trait Source2[A, B] extends Source1[A] { self =>
   def source2: Source[B]
   override lazy val sources: List[Source[_]] = List(source1, source2)
-  def listen2(x: B)
+  def listen2(x: B)  
   sh.executeBeforeStart(source2.addChannel(Channel2(self, sh)))
+  if (source1.sh != source2.sh)
+    throw new Exception("Create Replay(source1, source1.sh, source2.sh) node to adjust schedulers between source1 and source2")
 }
 
-trait Source3[A, B, C] extends Source2[A, B] {
-  self =>
+trait Source3[A, B, C] extends Source2[A, B] { self =>
   def source3: Source[C]
   override lazy val sources: List[Source[_]] = List(source1, source2, source3)
   def listen3(x: C)
   sh.executeBeforeStart(source3.addChannel(Channel3(self, sh)))
+  if (source1.sh != source3.sh)
+    throw new Exception("Create Replay(source1, source1.sh, source3.sh) node to adjust schedulers between source1 and source3")
+
+  
 }
 
-trait Source4[A, B, C, D] extends Source3[A, B, C] {
-  self =>
+trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   def source4: Source[D]
   override lazy val sources: List[Source[_]] =
     List(source1, source2, source3, source4)
   def listen4(x: D)
   sh.executeBeforeStart(source4.addChannel(Channel4(self, sh)))
+  if (source1.sh != source4.sh)
+    throw new Exception("Create Replay(source1, source1.sh, source4.sh) node to adjust schedulers between source1 and source4")
+  
 }
 
-trait Block[A] {
-  parent: Source[A] =>
+trait Block[A] { parent: Source[A] =>
   def out: Source[A]
 
   new Op1[A, A] {
     def source1 = out
-    def listen1(x: A) = 
+    def listen1(x: A) =
       parent.broadcast(x)
     def name = "Op Block"
   }
 }
 
-trait Block1[A, B]       extends Source[B] with Source1[A] with Block[B] {
+trait Block1[A, B] extends Source[B] with Source1[A] with Block[B] {
   def listen1(x: A) = ()
 }
-trait Block2[A, B, C]    extends Source[C] with Source2[A, B] with Block[C] {
-  def listen1(x: A) = ()  
+trait Block2[A, B, C] extends Source[C] with Source2[A, B] with Block[C] {
+  def listen1(x: A) = ()
   def listen2(x: B) = ()
 }
-trait Block3[A, B, C, D] extends Source[D] with Source3[A, B, C] with Block[D] {
+trait Block3[A, B, C, D]
+    extends Source[D]
+    with Source3[A, B, C]
+    with Block[D] {
   def listen1(x: A) = ()
-  def listen2(x: B) = ()  
-  def listen3(x: C) = ()  
+  def listen2(x: B) = ()
+  def listen3(x: C) = ()
 }
 trait Block4[A, B, C, D, E]
     extends Source[E]
@@ -242,13 +249,13 @@ trait Block4[A, B, C, D, E]
     with Block[E] {
   def listen1(x: A) = ()
   def listen2(x: B) = ()
-  def listen3(x: C) = ()    
+  def listen3(x: C) = ()
   def listen4(x: D) = ()
 }
 
-trait Op1[A, B] extends Source[B] with Source1[A]
-trait Op2[A, B, C] extends Source[C] with Source2[A, B]
-trait Op3[A, B, C, D] extends Source[D] with Source3[A, B, C] 
+trait Op1[A, B]          extends Source[B] with Source1[A]
+trait Op2[A, B, C]       extends Source[C] with Source2[A, B]
+trait Op3[A, B, C, D]    extends Source[D] with Source3[A, B, C]
 trait Op4[A, B, C, D, E] extends Source[E] with Source4[A, B, C, D]
 
 sealed trait Channel[A] {

@@ -15,8 +15,7 @@ object DroneParticle extends App {
 
   val traj = TrajFactory.generate()
 
-  implicit val mc = ModelCB[Trajectory]
-  implicit val sh = new Scheduler {}
+  implicit val setModel = ModelCB[Trajectory]
 
   val clock = TrajectoryClock(dt)
   val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) =>
@@ -33,7 +32,20 @@ object DroneParticle extends App {
   val gyroscope     = clock.map(Gyroscope(cov, dt))
   val controlInput  = clock.map(ControlInput(1, cov, dt))
   val vicon         = clock.map(Vicon(cov, covQ))
+
+  /* batch example
+  val batch = new Batch[Acceleration, Acceleration] {
+    def name = "id batch"
+    def source1 = accelerometer
+    def f(x: ListT[Acceleration]) = x
+  }
+
+
   
+  val replay = Replay(accelerometer, batch.sh)
+  Plot2(batch, replay)
+  */
+
   lazy val filter: SourceT[Quat] =
     ParticleFilter(accelerometer,
                    gyroscope,
@@ -41,33 +53,28 @@ object DroneParticle extends App {
                    vicon,
                    initQ,
                    dt,
-                   4000,
+                   400,
                    cov)
 
   val qs =
     points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
 
-  var sinks: Seq[Sourcable] = Seq()
 
   def awt() = {
-//    val vis = new Jzy3dVisualisation(points, KeypointSource())
-//    sinks ++= Seq(vis)
+    new Jzy3dVisualisation(points, traj.getKeypoints)
   }
 
   def printJson() = {
 //    val jsonFilter  = JsonExport(filter)
-    val printFilter = PrintSink(filter)
-    sinks ++= Seq(printFilter)
+    PrintSink(filter)
   }
 
   def figure() = {
-    val plot = Plot2(filter, qs)
-    sinks ++= Seq(plot)
+    Plot2(filter, qs)
   }
 
   def testTS() = {
-    val test = TestTS(filter, qs, 1000)
-    sinks ++= Seq(test)
+    TestTS(filter, qs, 1000)
   }
 
   testTS()
@@ -76,10 +83,10 @@ object DroneParticle extends App {
 //  awt()
 //  printJson()
 
-  mc(traj)
+  setModel(traj)
 
-  Sourcable.drawGraph(sinks)    
-  sh.run()
+  PrimarySourcableHook.drawGraph()
+  PrimaryScheduler.run()
 
 
 

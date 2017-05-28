@@ -66,6 +66,21 @@ package object flow {
   type Block4T[A, B, C, D, E] =
     Block4[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D], Timestamped[E]]    
 
+
+  implicit object PrimaryScheduler extends Scheduler
+
+  implicit object PrimarySourcableHook extends SourcableHook
+
+  trait SourcableHook {
+
+    var l = List[Sourcable]()
+
+    def addSourcable(s: Sourcable) =
+      l ::= s
+    
+    def drawGraph() =
+      Sourcable.drawGraph(l.toSeq)
+  }
   //******* Data (as in transformable in array of Real **********
 
   implicit object RealData extends Data[Real] {
