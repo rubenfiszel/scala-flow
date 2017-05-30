@@ -1,13 +1,10 @@
 package dawn.flow
 
-import breeze.stats.distributions._
+//import breeze.stats.distributions._
 
 class TimeSource(source: Source[Time]) {
 
   /*
-  def latency(dt: Timestep) =
-    source.map((x: Time) => x+dt, "Latency")
-
   def latencyVariance(std: Real) =
     source.map((x: Time) => Gaussian(x, std)(Random).draw(), "ClockVar " +std)
 
@@ -17,7 +14,7 @@ class TimeSource(source: Source[Time]) {
 
   def latency(dt: Time) =
     new Op1[Time, Time] {
-      def source1 = source
+      def rawSource1 = source
       def listen1(x: Time) = 
         broadcast(x + dt, dt)
       def name = "Latency " + dt

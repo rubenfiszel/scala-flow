@@ -10,7 +10,7 @@ object JsonExport {
   
 }
 
-case class PrintSink[A](source1: Source[A])(implicit val sourcableHook: SourcableHook) extends Sink1[A] {
+case class PrintSink[A](rawSource1: Source[A])(implicit val sourcableHook: SourcableHook) extends Sink1[A] {
   def name = "PrintSink"
   def f(x: A) = println(x)
 }

@@ -5,7 +5,7 @@ import collection.mutable.Queue
 trait Source[A] extends Sourcable { parent =>
   private var channels = List[Channel[A]]()
 
-  def sh: Scheduler
+  def scheduler: Scheduler
 
   def name: String
 
@@ -23,7 +23,7 @@ trait Source[A] extends Sourcable { parent =>
 
   def filter(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
-      def source1 = parent
+      def rawSource1 = parent
       def listen1(x: A) = {
         if (b(x))
           broadcast(x)
@@ -35,7 +35,7 @@ trait Source[A] extends Sourcable { parent =>
 
   def foreach(f: A => Unit, name1: String = ""): Source[A] =
     new Op1[A, A] {
-      def source1 = parent
+      def rawSource1 = parent
       def listen1(x: A) = {
         f(x)
         broadcast(x)
@@ -47,7 +47,7 @@ trait Source[A] extends Sourcable { parent =>
 
   def takeWhile(b: (A) => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
-      def source1 = parent
+      def rawSource1 = parent
       def listen1(x: A) = {
         if (b(x))
           broadcast(x)
@@ -59,7 +59,7 @@ trait Source[A] extends Sourcable { parent =>
 
   def map[B](f: A => B, name1: String = ""): Source[B] =
     new Op1[A, B] {
-      def source1 = parent
+      def rawSource1 = parent
       def listen1(x: A) = {
         val mx = f(x)
         broadcast(mx)
@@ -71,7 +71,7 @@ trait Source[A] extends Sourcable { parent =>
 
   def flatMap[C](f: (A) => List[C], name1: String = ""): Source[C] =
     new Op1[A, C] {
-      def source1 = parent
+      def rawSource1 = parent
       def listen1(x: A) = {
         f(x).foreach(x => broadcast(x))
       }
@@ -83,7 +83,7 @@ trait Source[A] extends Sourcable { parent =>
   //Divide the frequency of the stream by n
   def divider(n: Int) =
     new Op1[A, A] {
-      def source1 = parent
+      def rawSource1 = parent
       var i       = 0
       def listen1(x: A) = {
         i += 1
@@ -95,8 +95,8 @@ trait Source[A] extends Sourcable { parent =>
 
   def zip[B](s2: Source[B]) =
     new Op2[A, B, (A, B)] {
-      def source1      = parent
-      def source2      = s2
+      def rawSource1      = parent
+      def rawSource2      = s2
       val q1: Queue[A] = Queue()
       val q2: Queue[B] = Queue()
       def listen1(x: A) = {
@@ -122,8 +122,8 @@ trait Source[A] extends Sourcable { parent =>
 
   def zipLast[B](s2: Source[B]): Source[(A, B)] =
     new Op2[A, B, (A, B)] {
-      def source1          = parent
-      def source2          = s2
+      def rawSource1          = parent
+      def rawSource2          = s2
       val q1: Queue[A]     = Queue()
       var lastB: Option[B] = None
       def listen1(x: A) = {
@@ -151,8 +151,8 @@ trait Source[A] extends Sourcable { parent =>
 
   def merge[B](s2: Source[B]): Source[Either[A, B]] =
     new Op2[A, B, Either[A, B]] {
-      def source1 = parent
-      def source2 = s2
+      def rawSource1 = parent
+      def rawSource2 = s2
       def listen1(x: A) =
         broadcast(Left(x))
 
@@ -179,40 +179,54 @@ trait Source0 extends Sourcable {
 }
 
 trait Source1[A] extends Sourcable { self =>
-  def sh: Scheduler = source1.sh
-  def source1: Source[A]
+  def scheduler: Scheduler = source1.scheduler
+  def rawSource1: Source[A]
+  def source1: Source[A] = rawSource1
   lazy val sources: List[Source[_]] = List(source1)
   def listen1(x: A)
-  sh.executeBeforeStart(source1.addChannel(Channel1(self, sh)))
+  scheduler.executeBeforeStart(source1.addChannel(Channel1(self, scheduler)))
 }
 
 trait Source2[A, B] extends Source1[A] { self =>
-  def source2: Source[B]
+  def rawSource2: Source[B]  
   override lazy val sources: List[Source[_]] = List(source1, source2)
   def listen2(x: B)  
-  sh.executeBeforeStart(source2.addChannel(Channel2(self, sh)))
-  if (source1.sh != source2.sh)
-    throw new Exception("Create Replay(source1, source1.sh, source2.sh) node to adjust schedulers between source1 and source2")
+  scheduler.executeBeforeStart(source2.addChannel(Channel2(self, scheduler)))
+
+  override def source1: Source[A] =
+    if (rawSource1.scheduler != rawSource2.scheduler)
+      ReplayWithScheduler(rawSource1)
+    else
+      rawSource1
+
+  def source2: Source[B] =
+    if (rawSource1.scheduler != rawSource2.scheduler)
+      Replay(rawSource2, source1.scheduler)
+    else
+      rawSource2
+
 }
 
 trait Source3[A, B, C] extends Source2[A, B] { self =>
-  def source3: Source[C]
+  def rawSource3: Source[C]  
+  def source3: Source[C] = ???
   override lazy val sources: List[Source[_]] = List(source1, source2, source3)
   def listen3(x: C)
-  sh.executeBeforeStart(source3.addChannel(Channel3(self, sh)))
-  if (source1.sh != source3.sh)
+  scheduler.executeBeforeStart(source3.addChannel(Channel3(self, scheduler)))
+  if (source1.scheduler != source3.scheduler)
     throw new Exception("Create Replay(source1, source1.sh, source3.sh) node to adjust schedulers between source1 and source3")
 
   
 }
 
 trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
-  def source4: Source[D]
+  def rawSource4: Source[D]  
+  def source4: Source[D] = ???
   override lazy val sources: List[Source[_]] =
     List(source1, source2, source3, source4)
   def listen4(x: D)
-  sh.executeBeforeStart(source4.addChannel(Channel4(self, sh)))
-  if (source1.sh != source4.sh)
+  scheduler.executeBeforeStart(source4.addChannel(Channel4(self, scheduler)))
+  if (source1.scheduler != source4.scheduler)
     throw new Exception("Create Replay(source1, source1.sh, source4.sh) node to adjust schedulers between source1 and source4")
   
 }
@@ -221,7 +235,7 @@ trait Block[A] { parent: Source[A] =>
   def out: Source[A]
 
   new Op1[A, A] {
-    def source1 = out
+    def rawSource1 = out
     def listen1(x: A) =
       parent.broadcast(x)
     def name = "Op Block"

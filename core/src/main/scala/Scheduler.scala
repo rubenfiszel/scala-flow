@@ -6,9 +6,9 @@ case class Event(t: Time, f: () => Unit)
 
 trait CloseListener { self =>
   def closePriority: Int = 0
-  def shClose: Scheduler
+  def schedulerClose: Scheduler
   def close(): Unit
-  shClose.addCloseListener(self)
+  schedulerClose.addCloseListener(self)
 }
 
 object Scheduler {
@@ -73,12 +73,12 @@ trait EmitterStream[A] extends Source[A] with Source0 with Resettable {
     if (iterator.hasNext) {
       val (t, a) = iterator.next
       broadcast(a)
-      sh.registerEvent(registerNext(), t)
+      scheduler.registerEvent(registerNext(), t)
     }
   }
 
-  sh.executeBeforeStart({ iterator = stream().toIterator })
-  sh.executeAtStart(registerNext())
+  scheduler.executeBeforeStart({ iterator = stream().toIterator })
+  scheduler.executeAtStart(registerNext())
 
   def reset() = {
     iterator = stream.toIterator

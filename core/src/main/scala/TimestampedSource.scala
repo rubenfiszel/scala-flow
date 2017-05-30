@@ -3,9 +3,10 @@ package dawn.flow
 import io.circe.generic.JsonCodec
 
 @JsonCodec
-case class Timestamped[A](time: Time, v: A) {
-  def map[B](f: A => B) = Timestamped(time, f(v))
-  def addLatency(dt: Time): Timestamped[A] = copy(time = this.time + dt)
+case class Timestamped[A](t: Time, v: A, dt: Time = 0) {
+  def time = t + dt
+  def map[B](f: A => B) = Timestamped(t, f(v), dt)
+  def addLatency(dt: Time): Timestamped[A] = copy(dt = this.dt + dt)
 }
 
 object Timestamped {
@@ -29,7 +30,7 @@ class TimestampedSource[A](source: SourceT[A]) {
 
   def latency(dt: Time) =
     new Op1T[A, A] {
-      def source1 = source
+      def rawSource1 = source
       def listen1(x: Timestamped[A]) = {
         broadcast(x.addLatency(dt), dt)
       }

@@ -16,9 +16,9 @@ import breeze.linalg.{
 }
 //https://pdfs.semanticscholar.org/480b/7477c76a1b2b2b130923f09a66ecdb0fb910.pdf
 
-case class OrientationComplementaryFilter(source1: SourceT[Acceleration],
-                                          source2: SourceT[BodyRates],
-                                          source3: SourceT[(Thrust, BodyRates)],
+case class OrientationComplementaryFilter(rawSource1: SourceT[Acceleration],
+                                          rawSource2: SourceT[BodyRates],
+                                          rawSource3: SourceT[(Thrust, BodyRates)],
                                           init: Quat,
                                           alpha: Real,
                                           dt: Timeframe)
@@ -49,7 +49,7 @@ case class OrientationComplementaryFilter(source1: SourceT[Acceleration],
   lazy val out =
     gyroQuat.zip(accQuat).map(ga => ga._1 * alpha + ga._2 * (1 - alpha))
   lazy val buffer: SourceT[Quat] =
-    Buffer(out, Timestamped(init), sh)
+    Buffer(out, Timestamped(init), scheduler)
 
 }
 //case class OrientationKalmanFilter(source1: SourceT[Acceleration, Trajectory], source2: SourceT[BodyRates, Trajectory], init: Quaternion[Real], alpha: Real, dt: Timeframe) extends Block2T[Quaternion[Real], Trajectory, Acceleration, BodyRates] {
@@ -57,10 +57,10 @@ case class OrientationComplementaryFilter(source1: SourceT[Acceleration],
 //}
 
 //https://ai2-s2-pdfs.s3.amazonaws.com/0322/8afc107f925b7a0ca77d5ade2fda9050f0a3.pdf
-case class ParticleFilter(source1: SourceT[Acceleration],
-                          source2: SourceT[BodyRates],
-                          source3: SourceT[(Thrust, BodyRates)],
-                          source4: SourceT[(Position, Quat)],
+case class ParticleFilter(rawSource1: SourceT[Acceleration],
+                          rawSource2: SourceT[BodyRates],
+                          rawSource3: SourceT[(Thrust, BodyRates)],
+                          rawSource4: SourceT[(Position, Quat)],
                           init: Quat,
                           dt: Timeframe,
                           N: Int,
@@ -146,7 +146,7 @@ case class ParticleFilter(source1: SourceT[Acceleration],
 
   lazy val buffer: SourceT[Seq[State]] =
     Buffer(fused,
-      Timestamped(Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3()))), sh)
+      Timestamped(Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3()))), scheduler)
 
   lazy val out: SourceT[Quat] =
     fused

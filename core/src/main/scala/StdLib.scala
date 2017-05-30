@@ -17,7 +17,7 @@ object Clock {
   }
 
 }
-case class Clock(dt: Timestep, tf: Timeframe)(implicit val sh: Scheduler) extends EmitterStream[Time] {
+case class Clock(dt: Timestep, tf: Timeframe)(implicit val scheduler: Scheduler) extends EmitterStream[Time] {
 
   def name = "Clock " + dt 
   def stream() = 
@@ -27,7 +27,7 @@ case class Clock(dt: Timestep, tf: Timeframe)(implicit val sh: Scheduler) extend
 
 
 //Case class and not function because A is a type parameter not known in advance
-case class Integrate[A: Vec](source1: Source[A], dt: Timestep) extends Op1[A, A] {
+case class Integrate[A: Vec](rawSource1: Source[A], dt: Timestep) extends Op1[A, A] {
   def name = "Integrate " + dt
   def listen1(x: A) =
     broadcast(x*dt)
@@ -38,7 +38,7 @@ case class Timestamp(scale: Real)  extends NamedFunction( (x: Time) => Timestamp
 trait Buffer[A] extends Op1[A, A] {
   def name = "Buffer"
   def init: A
-  sh.executeAtStart(broadcast(init))
+  scheduler.executeAtStart(broadcast(init))
   def listen1(x: A) = 
     broadcast(x)
 }
@@ -46,10 +46,10 @@ trait Buffer[A] extends Op1[A, A] {
 //Need companion object for call-by-name evaluation of source1
 //Case classes don't support call-by-name
 object Buffer {
-  def apply[A](source11: => Source[A], init1: A, sh1: Scheduler) = new Buffer[A] {
-    override def sh = sh1
+  def apply[A](rawSource11: => Source[A], init1: A, scheduler1: Scheduler) = new Buffer[A] {
+    override def scheduler = scheduler1
     val init = init1
-    def source1 = source11
+    def rawSource1 = rawSource11
   }
 }
 

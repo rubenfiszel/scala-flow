@@ -26,7 +26,7 @@ trait Accumulate2[A, B] extends Accumulate1[A] {
 
 trait SinkBatch1[A] extends Sourcable with CloseListener with Accumulate1[A] with Source1[A] with Sink {
 
-  def shClose = sh
+  def schedulerClose = scheduler
 
   def close() =
     consumeAll(accumulated1)
@@ -36,7 +36,7 @@ trait SinkBatch1[A] extends Sourcable with CloseListener with Accumulate1[A] wit
 
 trait SinkBatch2[A, B] extends Sourcable with CloseListener with Accumulate2[A, B] with Source2[A, B] with Sink {
 
-  def shClose = sh
+  def schedulerClose = scheduler
 
   def close() =
     consumeAll(accumulated1, accumulated2)

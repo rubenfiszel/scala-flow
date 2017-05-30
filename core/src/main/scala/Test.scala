@@ -3,8 +3,8 @@ package dawn.flow
 import breeze.linalg._
 import breeze.interpolation._
 
-case class TestTS[A: Data](source1: SourceT[A],
-                              source2: SourceT[A],
+case class TestTS[A: Data](rawSource1: SourceT[A],
+                              rawSource2: SourceT[A],
                               nb: Int)(implicit val sourcableHook: SourcableHook)
     extends SinkBatch2[Timestamped[A], Timestamped[A]] {
 

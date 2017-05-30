@@ -16,6 +16,7 @@ trait Trajectory extends Model {
     var t = 0.0
     keypoints.map(x => {t += x._2; Timestamped(t, x._1 )})
   }
+
   def getPosition(t: Time): Position
 
   def getVelocity(t: Time): Velocity
@@ -93,7 +94,7 @@ trait Trajectory extends Model {
 }
 
 
-case class TrajectoryClock(dt: Timestep)(implicit val mc: ModelCallBack[Trajectory], val sh: Scheduler) extends EmitterStream[Time] with RequireModel[Trajectory] {
+case class TrajectoryClock(dt: Timestep)(implicit val mc: ModelCallBack[Trajectory], val scheduler: Scheduler) extends EmitterStream[Time] with RequireModel[Trajectory] {
   def name = "TrajectoryClock " + dt
   def stream() = Clock.genPerfectTimes(dt).takeWhile(_ < model.get.tf).map(x => (x, x))
 }

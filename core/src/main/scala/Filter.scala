@@ -5,8 +5,8 @@ import spire.implicits._
 import spire.algebra.Field
 import breeze.linalg.{norm, normalize, cross}
 
-case class ComplementaryFilter[A: Vec](source1: Source[A],
-                                       source2: Source[A],
+case class ComplementaryFilter[A: Vec](rawSource1: Source[A],
+                                       rawSource2: Source[A],
                                        init: A,
                                        alpha: Real)
     extends Block2[A, A, A] {
@@ -20,7 +20,7 @@ case class ComplementaryFilter[A: Vec](source1: Source[A],
 }
 
 //https://en.wikipedia.org/wiki/Low-pass_filter
-case class LowPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
+case class LowPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
     extends Block1[A, A] {
 
   def name = "LPF"
@@ -31,12 +31,12 @@ case class LowPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
     (xn - ynm) * alpha + ynm
   }
 
-  lazy val bYnm: Source[A] = Buffer(out, init, sh)
+  lazy val bYnm: Source[A] = Buffer(out, init, scheduler)
   lazy val out             = source1.zip(bYnm).map(f _)
 
 }
 
-case class HighPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
+case class HighPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
     extends Block1[A, A] {
 
   def name = "HPF"
@@ -49,7 +49,7 @@ case class HighPassFilter[A: Vec](source1: Source[A], init: A, alpha: Real)
   lazy val common =
     source.zip(bXnmYnm).map(f _)
 
-  val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init), sh)
+  val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init), scheduler)
 
   def source = source1
   val out    = common.map(_._2)
