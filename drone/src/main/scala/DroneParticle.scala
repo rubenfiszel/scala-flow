@@ -7,7 +7,6 @@ import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
-
 object DroneParticle extends App {
 
   //****** Model ******
@@ -15,23 +14,22 @@ object DroneParticle extends App {
 
   val traj = TrajFactory.generate()
 
-  implicit val setModel = ModelCB[Trajectory]
+  implicit val modelHook = ModelHook[Trajectory]
 
   val clock = TrajectoryClock(dt)
-  val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) =>
-                           Timestamped(t, traj.getPoint(t))),
-                         "toPoints")
+  val points = clock.map(
+    LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)),
+    "toPoints")
 
   //filter parameter
   val cov   = Config.cov
   val covQ  = Config.covQ
   val initQ = Config.initQ
 
-  
-  val accelerometer = clock.map(Accelerometer(cov)).latency(dt/2)
-  val gyroscope     = clock.map(Gyroscope(cov, dt))
-  val controlInput  = clock.map(ControlInput(1, cov, dt))
-  val vicon         = clock.map(Vicon(cov, covQ))
+  val accelerometer = clock.map(Accelerometer(cov))//.latency(dt / 2)
+  val gyroscope    = clock.map(Gyroscope(cov, dt))
+  val controlInput = clock.map(ControlInput(1, cov, dt))
+  val vicon        = clock.map(Vicon(cov, covQ))
 
   /* batch example
   val batch = new Batch[Acceleration, Acceleration] {
@@ -41,23 +39,25 @@ object DroneParticle extends App {
   }
 
 
-  
+
   val replay = Replay(accelerometer, batch.sh)
   Plot2(batch, replay)
-  */
+   */
 
-  lazy val filter: SourceT[Quat] =
+  val filter =
     ParticleFilter(accelerometer,
                    gyroscope,
                    controlInput,
                    vicon,
                    initQ,
                    dt,
-                   400,
+                   10,
                    cov)
 
+
   val qs =
-    points.mapT((x: TrajectoryPoint) => x.q, "toQ") //.cache()
+    points.map(_.q, "toQ")
+
 
 
   def awt() = {
@@ -77,20 +77,15 @@ object DroneParticle extends App {
     TestTS(filter, qs, 1000)
   }
 
-  testTS()
+//  testTS()
   figure()
 
 //  awt()
 //  printJson()
 
-  setModel(traj)
+  modelHook(traj)
 
-  PrimarySourcableHook.drawGraph()
+  PrimaryNodeHook.drawGraph()
   PrimaryScheduler.run()
 
-
-
 }
-
-
-

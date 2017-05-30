@@ -1,47 +1,52 @@
 package dawn.flow
 
 trait Sink {
-  self: Sourcable =>
-  def sourcableHook: SourcableHook
-  sourcableHook.addSourcable(self)
+  self: Node =>
+  def nodeHook: NodeHook
+  nodeHook.addNode(self)
 }
 
-trait Sink1[A] extends Sourcable with Source1[A] with Sink {
-  def f(x: A): Unit
-  def listen1(x: A) = f(x)
+trait Sink1[A] extends Node with Source1[A] with Sink {
+  def f(x: Timestamped[A]): Unit
+  def listen1(x: Timestamped[A]) =
+    f(x)
 }
 
 trait Accumulate1[A] {
-  var accumulated1 = List[A]()
-  def listen1(x: A) =
+  var accumulated1: ListT[A] = List()
+  def listen1(x: Timestamped[A]) = {
     accumulated1 ::= x
+  }
 }
 
 trait Accumulate2[A, B] extends Accumulate1[A] {
-  var accumulated2 = List[B]()  
-  def listen2(x: B) =
+  var accumulated2: ListT[B] = List()  
+  def listen2(x: Timestamped[B]) = {
     accumulated2 ::= x
+  }
+    
+}
+
+trait SinkBatch1[A] extends Node with CloseListener with Accumulate1[A] with Source1[A] with Sink {
+
+  def schedulerClose = scheduler
+
+  def close() =
+    consumeAll(accumulated1.reverse)
+
+  def consumeAll(x: ListT[A]): Unit
+}
+
+trait SinkBatch2[A, B] extends Node with CloseListener with Accumulate2[A, B] with Source2[A, B] with Sink {
+
+
+  def schedulerClose = scheduler
+
+  def close() = {
+    consumeAll(accumulated1.reverse, accumulated2.reverse)
+  }
   
-}
-
-trait SinkBatch1[A] extends Sourcable with CloseListener with Accumulate1[A] with Source1[A] with Sink {
-
-  def schedulerClose = scheduler
-
-  def close() =
-    consumeAll(accumulated1)
-
-  def consumeAll(x: List[A]): Unit
-}
-
-trait SinkBatch2[A, B] extends Sourcable with CloseListener with Accumulate2[A, B] with Source2[A, B] with Sink {
-
-  def schedulerClose = scheduler
-
-  def close() =
-    consumeAll(accumulated1, accumulated2)
-
-  def consumeAll(x: List[A], y: List[B]): Unit
+  def consumeAll(x: ListT[A], y: ListT[B]): Unit
 }
 
 /*
@@ -97,7 +102,7 @@ trait Sink2[A, B] extends SinkP with Source2[A, B] {
 
 
 trait SinkTimestamped[A] extends Sink {
-  this: Sourcable =>
+  this: Node =>
 
   def isEmpty: Boolean
   def consume(): Unit =

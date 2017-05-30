@@ -16,18 +16,18 @@ import breeze.linalg.{
 }
 //https://pdfs.semanticscholar.org/480b/7477c76a1b2b2b130923f09a66ecdb0fb910.pdf
 
-case class OrientationComplementaryFilter(rawSource1: SourceT[Acceleration],
-                                          rawSource2: SourceT[BodyRates],
-                                          rawSource3: SourceT[(Thrust, BodyRates)],
+case class OrientationComplementaryFilter(rawSource1: Source[Acceleration],
+                                          rawSource2: Source[BodyRates],
+                                          rawSource3: Source[(Thrust, BodyRates)],
                                           init: Quat,
                                           alpha: Real,
                                           dt: Timeframe)
-    extends Block3T[Acceleration, BodyRates, (Thrust, BodyRates), Quat] {
+    extends Block3[Acceleration, BodyRates, (Thrust, BodyRates), Quat] {
 
   def name = "OCF"
   val acc    = source1
   val gyro   = source2
-  val thrust = source3.mapT(_._1)
+  val thrust = source3.map(_._1)
 
   def attitudeAcc(atv: ((Acceleration, Thrust), Quat)) = {
     val ((a, th), q) = atv
@@ -37,35 +37,37 @@ case class OrientationComplementaryFilter(rawSource1: SourceT[Acceleration],
 
   }
   lazy val accQuat =
-    acc.zipT(thrust).zipT(buffer).mapT(attitudeAcc _, "ACC2Quat")
+    acc.zip(thrust).zip(buffer).map(attitudeAcc _, "ACC2Quat")
+
   lazy val bodyRateInteg = Integrate(gyro, dt)
   lazy val gyroQuatLocal = bodyRateInteg
-    .zipT(buffer)
-    .mapT(
+    .zip(buffer)
+    .map(
       (qv: (Vec3, Quat)) => TQuaternion.localAngleToLocalQuat(qv._2, qv._1),
       "BR2Quat")
-  lazy val gyroQuat = gyroQuatLocal.zipT(buffer).mapT(x => x._1.rotateBy(x._2))
+  lazy val gyroQuat = gyroQuatLocal.zip(buffer).map(x => x._1.rotateBy(x._2))
 
   lazy val out =
     gyroQuat.zip(accQuat).map(ga => ga._1 * alpha + ga._2 * (1 - alpha))
-  lazy val buffer: SourceT[Quat] =
-    Buffer(out, Timestamped(init), scheduler)
+
+  lazy val buffer: Source[Quat] =
+    Buffer(out, init, scheduler)
 
 }
-//case class OrientationKalmanFilter(source1: SourceT[Acceleration, Trajectory], source2: SourceT[BodyRates, Trajectory], init: Quaternion[Real], alpha: Real, dt: Timeframe) extends Block2T[Quaternion[Real], Trajectory, Acceleration, BodyRates] {
+//case class OrientationKalmanFilter(source1: Source[Acceleration, Trajectory], source2: Source[BodyRates, Trajectory], init: Quaternion[Real], alpha: Real, dt: Timeframe) extends Block2T[Quaternion[Real], Trajectory, Acceleration, BodyRates] {
 
 //}
 
 //https://ai2-s2-pdfs.s3.amazonaws.com/0322/8afc107f925b7a0ca77d5ade2fda9050f0a3.pdf
-case class ParticleFilter(rawSource1: SourceT[Acceleration],
-                          rawSource2: SourceT[BodyRates],
-                          rawSource3: SourceT[(Thrust, BodyRates)],
-                          rawSource4: SourceT[(Position, Quat)],
+case class ParticleFilter(rawSource1: Source[Acceleration],
+                          rawSource2: Source[BodyRates],
+                          rawSource3: Source[(Thrust, BodyRates)],
+                          rawSource4: Source[(Position, Quat)],
                           init: Quat,
                           dt: Timeframe,
                           N: Int,
                           bodyRateStd: DenseMatrix[Real])
-    extends Block4T[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat]
+    extends Block4[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat]
 {
 
   def name = "ParticleFilter"
@@ -126,32 +128,33 @@ case class ParticleFilter(rawSource1: SourceT[Acceleration],
       .normalized
   }
 
-  var i = 0
+
   //TODO HANDLE DIFFERENT INITIAL POSSIBLE POSITIONS + resample + accelerometer for attitude + vicon + integrate acceleration
-  lazy val particlesGyro: SourceT[Seq[State]] =
+  lazy val particlesGyro: Source[Seq[State]] =
     source2
-      .zipLastT(buffer)
-      .mapT(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
+      .zipLast(buffer)
+      .map(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
 
   lazy val particlesAcc =
     source1
-      .zipLastT(buffer)
-      .mapT(_._2)
+      .zipLast(buffer)
+      .map(_._2)
 
 
   lazy val fused =
     particlesGyro
-      .fusion(particlesAcc)
-      .mapT(resample)
+//      .fusion(particlesAcc)
+//      .map(resample)
 
-  lazy val buffer: SourceT[Seq[State]] =
+
+  lazy val buffer: Source[Seq[State]] =
     Buffer(fused,
-      Timestamped(Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3()))), scheduler)
+      Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())), scheduler)
 
-  lazy val out: SourceT[Quat] =
+  lazy val out: Source[Quat] =
     fused
-      .mapT(_.map(x => (x.w, x.q)))
-      .mapT(averageQuaternions)
+      .map(_.map(x => (x.w, x.q)))
+      .map(averageQuaternions)
 
 
 }

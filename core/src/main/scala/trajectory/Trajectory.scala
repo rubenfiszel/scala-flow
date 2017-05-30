@@ -94,7 +94,7 @@ trait Trajectory extends Model {
 }
 
 
-case class TrajectoryClock(dt: Timestep)(implicit val mc: ModelCallBack[Trajectory], val scheduler: Scheduler) extends EmitterStream[Time] with RequireModel[Trajectory] {
+case class TrajectoryClock(dt: Timestep)(implicit val modelHook: ModelHook[Trajectory], val scheduler: Scheduler) extends EmitterStream[Time] with RequireModel[Trajectory] {
   def name = "TrajectoryClock " + dt
   def stream() = Clock.genPerfectTimes(dt).takeWhile(_ < model.get.tf).map(x => (x, x))
 }

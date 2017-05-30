@@ -1,6 +1,6 @@
 package dawn.flow
 
-trait Batch[A, B] extends Source1T[A] with SourceT[B] with Accumulate1[Timestamped[A]] with CloseListener {
+trait Batch[A, B] extends Source1[A] with Source[B] with Accumulate1[A] with CloseListener {
 
   def schedulerClose = source1.scheduler
 
@@ -23,13 +23,13 @@ trait Batch[A, B] extends Source1T[A] with SourceT[B] with Accumulate1[Timestamp
 
 }
 
-case class ReplayWithScheduler[A](rawSource1: SourceT[A]) extends Batch[A, A] {
+case class ReplayWithScheduler[A](rawSource1: Source[A]) extends Batch[A, A] {
   def name = "Replay w/ scheduler"
   def f(lA: ListT[A]) = lA
 }
 
 
-case class Replay[A](rawSource1: SourceT[A], schedulerOut: Scheduler) extends Source1T[A] with SourceT[A] with Accumulate1[Timestamped[A]] with CloseListener {
+case class Replay[A](rawSource1: Source[A], schedulerOut: Scheduler) extends Source1[A] with Source[A] with Accumulate1[A] with CloseListener {
 
   def name = "Replay"
 

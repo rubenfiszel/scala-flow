@@ -8,9 +8,9 @@ import org.jzy3d.maths.{Coord3d, Scale}
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class Jzy3dVisualisation(val rawSource1: SourceT[TrajectoryPoint], kps: List[Timestamped[Keypoint]])(implicit val sourcableHook: SourcableHook) extends SinkBatch1[Timestamped[TrajectoryPoint]] {
+class Jzy3dVisualisation(val rawSource1: Source[TrajectoryPoint], kps: List[Timestamped[Keypoint]])(implicit val nodeHook: NodeHook) extends SinkBatch1[TrajectoryPoint] {
 
-  def consumeAll(pts: List[Timestamped[TrajectoryPoint]]) = {
+  def consumeAll(pts: ListT[TrajectoryPoint]) = {
 
     val chart = AWTChartComponentFactory.chart(Quality.Advanced)    
     val line  = new LineStrip()

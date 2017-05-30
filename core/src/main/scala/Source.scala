@@ -2,7 +2,8 @@ package dawn.flow
 
 import collection.mutable.Queue
 
-trait Source[A] extends Sourcable { parent =>
+trait Source[A] extends Node {
+  parent =>
   private var channels = List[Channel[A]]()
 
   def scheduler: Scheduler
@@ -12,19 +13,37 @@ trait Source[A] extends Sourcable { parent =>
   def addChannel(c: Channel[A]) =
     channels ::= c
 
-  def broadcast(x: => A, t: Time = -1) =
+  def broadcast(x: => Timestamped[A], t: Time = 0) =
     channels.foreach(_.push(x, t))
 
   override def toString = name
 
-  def replay(sh2: Scheduler) = {
-    ???
-  }
+  private def lift[B, C](f: B => C): Timestamped[B] => Timestamped[C] =
+    new NamedFunction((x: Timestamped[B]) => x.map(f),
+                      f.toString,
+                      RequireModel.isRequiring(f))
 
-  def filter(b: (A) => Boolean, name1: String = ""): Source[A] =
+  private def liftBool[B](b: B => Boolean): Timestamped[B] => Boolean =
+    new NamedFunction((x: Timestamped[B]) => b(x.v),
+                      b.toString,
+                      RequireModel.isRequiring(b))
+
+  private def liftUnit[B](f: B => Unit): Timestamped[B] => Unit =
+    new NamedFunction((x: Timestamped[B]) => f(x.v),
+                      f.toString,
+                      RequireModel.isRequiring(f))
+
+  private def liftList[B, C](
+      f: B => List[C]): Timestamped[B] => List[Timestamped[C]] =
+    new NamedFunction(
+      (x: Timestamped[B]) => f(x.v).map(y => Timestamped(x.t, y, x.dt)),
+      f.toString,
+      RequireModel.isRequiring(f))
+
+  def filterT(b: Timestamped[A] => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
-      def listen1(x: A) = {
+      def listen1(x: Timestamped[A]) = {
         if (b(x))
           broadcast(x)
       }
@@ -33,10 +52,13 @@ trait Source[A] extends Sourcable { parent =>
       override def requireModel = RequireModel.isRequiring(b)
     }
 
-  def foreach(f: A => Unit, name1: String = ""): Source[A] =
+  def filter(b: A => Boolean, name1: String = ""): Source[A] =
+    filterT(liftBool(b), name1)
+
+  def foreachT(f: Timestamped[A] => Unit, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
-      def listen1(x: A) = {
+      def listen1(x: Timestamped[A]) = {
         f(x)
         broadcast(x)
       }
@@ -45,10 +67,13 @@ trait Source[A] extends Sourcable { parent =>
       override def requireModel = RequireModel.isRequiring(f)
     }
 
-  def takeWhile(b: (A) => Boolean, name1: String = ""): Source[A] =
+  def foreach(f: A => Unit, name1: String = ""): Source[A] =
+    foreachT(liftUnit(f), name1)
+
+  def takeWhileT(b: Timestamped[A] => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
-      def listen1(x: A) = {
+      def listen1(x: Timestamped[A]) = {
         if (b(x))
           broadcast(x)
       }
@@ -57,10 +82,14 @@ trait Source[A] extends Sourcable { parent =>
       override def requireModel = RequireModel.isRequiring(b)
     }
 
-  def map[B](f: A => B, name1: String = ""): Source[B] =
+  def takeWhile(b: A => Boolean, name1: String = ""): Source[A] =
+    takeWhileT(liftBool(b), name1)
+
+  def mapT[B](f: Timestamped[A] => Timestamped[B],
+              name1: String = ""): Source[B] =
     new Op1[A, B] {
       def rawSource1 = parent
-      def listen1(x: A) = {
+      def listen1(x: Timestamped[A]) = {
         val mx = f(x)
         broadcast(mx)
       }
@@ -69,10 +98,14 @@ trait Source[A] extends Sourcable { parent =>
       override def requireModel = RequireModel.isRequiring(f)
     }
 
-  def flatMap[C](f: (A) => List[C], name1: String = ""): Source[C] =
+  def map[B](f: A => B, name1: String = ""): Source[B] =
+    mapT(lift(f), name1)
+
+  def flatMapT[C](f: Timestamped[A] => List[Timestamped[C]],
+                  name1: String = ""): Source[C] =
     new Op1[A, C] {
       def rawSource1 = parent
-      def listen1(x: A) = {
+      def listen1(x: Timestamped[A]) = {
         f(x).foreach(x => broadcast(x))
       }
 
@@ -80,12 +113,15 @@ trait Source[A] extends Sourcable { parent =>
       override def requireModel = RequireModel.isRequiring(f)
     }
 
+  def flatMap[C](f: A => List[C], name1: String = ""): Source[C] =
+    flatMapT(liftList(f), name1)
+
   //Divide the frequency of the stream by n
   def divider(n: Int) =
     new Op1[A, A] {
       def rawSource1 = parent
-      var i       = 0
-      def listen1(x: A) = {
+      var i          = 0
+      def listen1(x: Timestamped[A]) = {
         i += 1
         if (i % n == 0)
           broadcast(x)
@@ -93,55 +129,71 @@ trait Source[A] extends Sourcable { parent =>
       def name = "Divider " + n
     }
 
-  def zip[B](s2: Source[B]) =
-    new Op2[A, B, (A, B)] {
-      def rawSource1      = parent
-      def rawSource2      = s2
-      val q1: Queue[A] = Queue()
-      val q2: Queue[B] = Queue()
-      def listen1(x: A) = {
+  private def to2TS[B, C](x1: Timestamped[B], x2: Timestamped[C]) = {
+//    val t  = Math.max(x1.t, x2.t)
+//    val dt = Math.max(x1.dt, x2.dt)
+    val t = x1.t
+    val dt = x1.dt
+    Timestamped(t, (x1, x2), dt)
+  }
+
+  def zipT[B](s2: Source[B]) =
+    new Op2[A, B, (Timestamped[A], Timestamped[B])] {
+      def rawSource1                = parent
+      def rawSource2                = s2
+      val q1: Queue[Timestamped[A]] = Queue()
+      val q2: Queue[Timestamped[B]] = Queue()
+      def listen1(x: Timestamped[A]) = {
         if (q2.isEmpty)
           q1.enqueue(x)
         else {
           val dq = q2.dequeue()
-          broadcast((x, dq))
+          broadcast(to2TS(x, dq))
         }
       }
 
-      def listen2(x: B) = {
+      def listen2(x: Timestamped[B]) = {
         if (q1.isEmpty)
           q2.enqueue(x)
         else {
           val dq = q1.dequeue()
-          broadcast((dq, x))
+          broadcast(to2TS(dq, x))
         }
       }
 
       def name = "Zip2"
     }
 
-  def zipLast[B](s2: Source[B]): Source[(A, B)] =
-    new Op2[A, B, (A, B)] {
-      def rawSource1          = parent
-      def rawSource2          = s2
-      val q1: Queue[A]     = Queue()
-      var lastB: Option[B] = None
-      def listen1(x: A) = {
+  private def mergeTS[B, C](
+      x: Timestamped[(Timestamped[B], Timestamped[C])]): Timestamped[(B, C)] =
+    x.map(y => (y._1.v, y._2.v))
+
+  def zip[B](s2: Source[B]) =
+    zipT(s2).mapT(mergeTS, "ZipT")
+
+  def zipLastT[B](s2: Source[B]): Source[(Timestamped[A], Timestamped[B])] =
+    new Op2[A, B, (Timestamped[A], Timestamped[B])] {
+      def rawSource1                    = parent
+      def rawSource2                    = s2
+      val q1: Queue[Timestamped[A]]     = Queue()
+      var lastB: Option[Timestamped[B]] = None
+
+      def listen1(x: Timestamped[A]) = {
         if (lastB.isEmpty)
           q1.enqueue(x)
         else {
           val lB = lastB.get
           lastB = None
-          broadcast((x, lB))
+          broadcast(to2TS(x, lB))
         }
       }
 
-      def listen2(x: B) = {
+      def listen2(x: Timestamped[B]) = {
         if (q1.isEmpty)
           lastB = Some(x)
         else {
           val dq = q1.dequeue()
-          broadcast((dq, x))
+          broadcast(to2TS(dq, x))
           lastB = None
         }
       }
@@ -149,15 +201,18 @@ trait Source[A] extends Sourcable { parent =>
       def name = "ZipLast"
     }
 
+  def zipLast[B](s2: Source[B]) =
+    zipLastT(s2).mapT(mergeTS, "ZipLastT")
+
   def merge[B](s2: Source[B]): Source[Either[A, B]] =
     new Op2[A, B, Either[A, B]] {
       def rawSource1 = parent
       def rawSource2 = s2
-      def listen1(x: A) =
-        broadcast(Left(x))
+      def listen1(x: Timestamped[A]) =
+        broadcast(x.map(Left(_)))
 
-      def listen2(x: B) =
-        broadcast(Right(x))
+      def listen2(x: Timestamped[B]) =
+        broadcast(x.map(Right(_)))
 
       def name = "Merge"
     }
@@ -172,135 +227,17 @@ trait Source[A] extends Sourcable { parent =>
       acc.merge(pos).map(flatten _, "Fusion"))
   }
 
-}
+  def latency(dt: Time) =
+    new Op1[A, A] {
+      def rawSource1 = parent
+      def listen1(x: Timestamped[A]) = {
+        broadcast(x.addLatency(dt), dt)
+      }
+      def name = "LatencyT " + dt
+    }
 
-trait Source0 extends Sourcable {
-  lazy val sources: List[Source[_]] = List()
-}
-
-trait Source1[A] extends Sourcable { self =>
-  def scheduler: Scheduler = source1.scheduler
-  def rawSource1: Source[A]
-  def source1: Source[A] = rawSource1
-  lazy val sources: List[Source[_]] = List(source1)
-  def listen1(x: A)
-  scheduler.executeBeforeStart(source1.addChannel(Channel1(self, scheduler)))
-}
-
-trait Source2[A, B] extends Source1[A] { self =>
-  def rawSource2: Source[B]  
-  override lazy val sources: List[Source[_]] = List(source1, source2)
-  def listen2(x: B)  
-  scheduler.executeBeforeStart(source2.addChannel(Channel2(self, scheduler)))
-
-  override def source1: Source[A] =
-    if (rawSource1.scheduler != rawSource2.scheduler)
-      ReplayWithScheduler(rawSource1)
-    else
-      rawSource1
-
-  def source2: Source[B] =
-    if (rawSource1.scheduler != rawSource2.scheduler)
-      Replay(rawSource2, source1.scheduler)
-    else
-      rawSource2
+  def toTime =
+    mapT(x => x.map(y => x.time))
 
 }
 
-trait Source3[A, B, C] extends Source2[A, B] { self =>
-  def rawSource3: Source[C]  
-  def source3: Source[C] = ???
-  override lazy val sources: List[Source[_]] = List(source1, source2, source3)
-  def listen3(x: C)
-  scheduler.executeBeforeStart(source3.addChannel(Channel3(self, scheduler)))
-  if (source1.scheduler != source3.scheduler)
-    throw new Exception("Create Replay(source1, source1.sh, source3.sh) node to adjust schedulers between source1 and source3")
-
-  
-}
-
-trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
-  def rawSource4: Source[D]  
-  def source4: Source[D] = ???
-  override lazy val sources: List[Source[_]] =
-    List(source1, source2, source3, source4)
-  def listen4(x: D)
-  scheduler.executeBeforeStart(source4.addChannel(Channel4(self, scheduler)))
-  if (source1.scheduler != source4.scheduler)
-    throw new Exception("Create Replay(source1, source1.sh, source4.sh) node to adjust schedulers between source1 and source4")
-  
-}
-
-trait Block[A] { parent: Source[A] =>
-  def out: Source[A]
-
-  new Op1[A, A] {
-    def rawSource1 = out
-    def listen1(x: A) =
-      parent.broadcast(x)
-    def name = "Op Block"
-  }
-}
-
-trait Block1[A, B] extends Source[B] with Source1[A] with Block[B] {
-  def listen1(x: A) = ()
-}
-trait Block2[A, B, C] extends Source[C] with Source2[A, B] with Block[C] {
-  def listen1(x: A) = ()
-  def listen2(x: B) = ()
-}
-trait Block3[A, B, C, D]
-    extends Source[D]
-    with Source3[A, B, C]
-    with Block[D] {
-  def listen1(x: A) = ()
-  def listen2(x: B) = ()
-  def listen3(x: C) = ()
-}
-trait Block4[A, B, C, D, E]
-    extends Source[E]
-    with Source4[A, B, C, D]
-    with Block[E] {
-  def listen1(x: A) = ()
-  def listen2(x: B) = ()
-  def listen3(x: C) = ()
-  def listen4(x: D) = ()
-}
-
-trait Op1[A, B]          extends Source[B] with Source1[A]
-trait Op2[A, B, C]       extends Source[C] with Source2[A, B]
-trait Op3[A, B, C, D]    extends Source[D] with Source3[A, B, C]
-trait Op4[A, B, C, D, E] extends Source[E] with Source4[A, B, C, D]
-
-sealed trait Channel[A] {
-  def push(x: A, dt: Time): Unit
-}
-
-case class Channel1[A](receiver: Source1[A], sh: Scheduler)
-    extends Channel[A] {
-  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen1(x), dt)
-}
-
-case class Channel2[A](receiver: Source2[_, A], sh: Scheduler)
-    extends Channel[A] {
-  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen2(x), dt)
-}
-
-case class Channel3[A](receiver: Source3[_, _, A], sh: Scheduler)
-    extends Channel[A] {
-  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen3(x), dt)
-}
-
-case class Channel4[A](receiver: Source4[_, _, _, A], sh: Scheduler)
-    extends Channel[A] {
-  def push(x: A, dt: Time = 0) = sh.executeIn(receiver.listen4(x), dt)
-}
-
-trait Resettable {
-  def reset(): Unit
-}
-
-abstract class NamedFunction[A, B](f: A => B, name: String) extends (A => B) {
-  override def toString = name
-  def apply(x: A)       = f(x)
-}

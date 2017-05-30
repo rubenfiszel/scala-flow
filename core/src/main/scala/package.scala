@@ -37,49 +37,27 @@ package object flow {
   type VectorR = DenseVector[Real]
   type MatrixR = DenseMatrix[Real]
   type Quat = Quaternion[Real]
-  type TS[A] = Timestamped[A]
-  def fromRate(i: Long): Timestep = 1.0 / i
-  
 
-  //Less Timestamped boilerplate
-  type SourceT[A] = Source[Timestamped[A]]
+  def fromRate(i: Long): Timestep = 1.0 / i
+
   type ListT[A] = List[Timestamped[A]]
 
-  type Source1T[A] = Source1[Timestamped[A]]
-  type Source2T[A, B] = Source2[Timestamped[A], Timestamped[B]]
-  type Source3T[A, B, C] = Source3[Timestamped[A], Timestamped[B], Timestamped[C]]      
-  type StreamT[A]    = Stream[Timestamped[A]]
-
-  type Op1T[A, B] = Op1[Timestamped[A], Timestamped[B]]
-  type Op2T[A, B, C] =
-    Op2[Timestamped[A], Timestamped[B], Timestamped[C]]
-  type Op3T[A, B, C, D] =
-    Op3[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D]]    
-  type Op4T[A, B, C, D, E] =
-    Op4[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D], Timestamped[E]]    
-
-  type Block1T[A, B] = Block1[Timestamped[A], Timestamped[B]]
-  type Block2T[A, B, C] =
-    Block2[Timestamped[A], Timestamped[B], Timestamped[C]]
-  type Block3T[A, B, C, D] =
-    Block3[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D]]    
-  type Block4T[A, B, C, D, E] =
-    Block4[Timestamped[A], Timestamped[B], Timestamped[C], Timestamped[D], Timestamped[E]]    
+  //Less Timestamped boilerplate
 
 
   implicit object PrimaryScheduler extends Scheduler
 
-  implicit object PrimarySourcableHook extends SourcableHook
+  implicit object PrimaryNodeHook extends NodeHook
 
-  trait SourcableHook {
+  trait NodeHook {
 
-    var l = List[Sourcable]()
+    var l = List[Node]()
 
-    def addSourcable(s: Sourcable) =
+    def addNode(s: Node) =
       l ::= s
-    
+
     def drawGraph() =
-      Sourcable.drawGraph(l.toSeq)
+      Node.drawGraph(l.toSeq)
   }
   //******* Data (as in transformable in array of Real **********
 
@@ -93,13 +71,6 @@ package object flow {
 
 
   //****** Source to specific Ops Source
-
-  implicit def toTimestampedSource[A](
-      s: Source[Timestamped[A]]): TimestampedSource[A] =
-    new TimestampedSource(s)
-
-  implicit def toTimeSource[B](s: Source[Time]): TimeSource =
-    new TimeSource(s)
 
   implicit def toStreamSource[A](
       s: Source[Stream[A]]): StreamSource[A] =

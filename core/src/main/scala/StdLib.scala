@@ -3,7 +3,7 @@ package dawn.flow
 import spire.math._
 import spire.implicits._
 
-case class LambdaWithModel[A, B, M](f: (A, M) => B, name: String = "")(implicit val mc: ModelCallBack[M]) extends (A => B) with RequireModel[M] {
+case class LambdaWithModel[A, B, M](f: (A, M) => B, name: String = "")(implicit val modelHook: ModelHook[M]) extends (A => B) with RequireModel[M] {
   override def toString = getStrOrElse(name, "Lambda")
   def apply(x: A) = f(x, model.get)
 }
@@ -27,19 +27,20 @@ case class Clock(dt: Timestep, tf: Timeframe)(implicit val scheduler: Scheduler)
 
 
 //Case class and not function because A is a type parameter not known in advance
-case class Integrate[A: Vec](rawSource1: Source[A], dt: Timestep) extends Op1[A, A] {
-  def name = "Integrate " + dt
-  def listen1(x: A) =
-    broadcast(x*dt)
+case class Integrate[A: Vec](dt: Timestep) extends NamedFunction((x: A) => x*dt, "Integrate")
+
+object Integrate {
+  def apply[A: Vec](source: Source[A], dt: Time): Source[A] =
+    source.map(Integrate(dt))
 }
 
-case class Timestamp(scale: Real)  extends NamedFunction( (x: Time) => Timestamped(x, x*scale), "Timestamp")
+case class Timestamp(scale: Real)  extends NamedFunction((x: Time) => x*scale, "Timestamp")
 
 trait Buffer[A] extends Op1[A, A] {
   def name = "Buffer"
   def init: A
-  scheduler.executeAtStart(broadcast(init))
-  def listen1(x: A) = 
+  scheduler.executeAtStart(broadcast(Timestamped(init)))
+  def listen1(x: Timestamped[A]) = 
     broadcast(x)
 }
 
