@@ -8,7 +8,7 @@ trait Source1[A] extends Node { self =>
 
   def scheduler: Scheduler = source1.scheduler
   def rawSource1: Source[A]
-  def source1: Source[A]            = rawSource1
+  def source1: Source[A] = rawSource1
   override def sources: List[Node] = List(source1)
   def listen1(x: Timestamped[A])
 
@@ -29,12 +29,14 @@ trait Source1[A] extends Node { self =>
     collection.mutable.Map()
 
   def overrideSourceX[C](lSource1: Source[A], lSourceX: Source[C]) = {
-    os2.getOrElseUpdate((lSource1, lSourceX), {
-      if (lSource1.scheduler != lSourceX.scheduler)
-        Replay(lSourceX, lSource1.scheduler)
-      else
-        lSourceX
-    }).asInstanceOf[Source[C]]
+    os2
+      .getOrElseUpdate((lSource1, lSourceX), {
+        if (lSource1.scheduler != lSourceX.scheduler)
+          Replay(lSourceX, lSource1.scheduler)
+        else
+          lSourceX
+      })
+      .asInstanceOf[Source[C]]
   }
 
   scheduler.executeBeforeStart(source1.addChannel(Channel1(self, scheduler)))
@@ -74,7 +76,7 @@ trait Source3[A, B, C] extends Source2[A, B] { self =>
 
 trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   def rawSource4: Source[D]
-  override def sources  = source4 :: super.sources
+  override def sources = source4 :: super.sources
   def listen4(x: Timestamped[D])
 
   override def source1: Source[A] =

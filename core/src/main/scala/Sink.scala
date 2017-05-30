@@ -1,7 +1,6 @@
 package dawn.flow
 
-trait Sink {
-  self: Node =>
+trait Sink { self: Node =>
   def nodeHook: NodeHook
   nodeHook.addNode(self)
 }
@@ -12,40 +11,34 @@ trait Sink1[A] extends Node with Source1[A] with Sink {
     f(x)
 }
 
-trait Accumulate1[A] {
-  var accumulated1: ListT[A] = List()
-  def listen1(x: Timestamped[A]) = {
-    accumulated1 ::= x
-  }
-}
-
-trait Accumulate2[A, B] extends Accumulate1[A] {
-  var accumulated2: ListT[B] = List()  
-  def listen2(x: Timestamped[B]) = {
-    accumulated2 ::= x
-  }
-    
-}
-
-trait SinkBatch1[A] extends Node with CloseListener with Accumulate1[A] with Source1[A] with Sink {
+trait SinkBatch1[A]
+    extends Node
+    with CloseListener
+    with Accumulate1[A]
+    with Source1[A]
+    with Sink {
 
   def schedulerClose = scheduler
 
-  def close() =
+  def onScheduleClose() =
     consumeAll(accumulated1.reverse)
 
   def consumeAll(x: ListT[A]): Unit
 }
 
-trait SinkBatch2[A, B] extends Node with CloseListener with Accumulate2[A, B] with Source2[A, B] with Sink {
-
+trait SinkBatch2[A, B]
+    extends Node
+    with CloseListener
+    with Accumulate2[A, B]
+    with Source2[A, B]
+    with Sink {
 
   def schedulerClose = scheduler
 
-  def close() = {
+  def onScheduleClose() = {
     consumeAll(accumulated1.reverse, accumulated2.reverse)
   }
-  
+
   def consumeAll(x: ListT[A], y: ListT[B]): Unit
 }
 
@@ -113,4 +106,4 @@ trait SinkTimestamped[A] extends Sink {
   def f(x: Timestamped[A]): Unit
 
 }
-*/
+ */

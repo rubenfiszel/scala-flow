@@ -1,16 +1,24 @@
 package dawn.flow
 
-trait Batch[A, B] extends Source1[A] with Source[B] with Accumulate1[A] with CloseListener {
+trait Batch[A, B]
+    extends Source1[A]
+    with Source[B]
+    with Accumulate1[A]
+    with CloseListener {
 
   def schedulerClose = source1.scheduler
 
   override def closePriority = -1
 
-  override lazy val scheduler = SecondaryScheduler()
+  override lazy val scheduler = {
+    val s = new Scheduler {}
+    source1.scheduler.childSchedulers ::= s
+    s
+  }
 
   def f(lA: ListT[A]): ListT[B]
 
-  def close() = {
+  def onScheduleClose() = {
     val lB = f(accumulated1)
     lB.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
     scheduler.run()
@@ -19,8 +27,19 @@ trait Batch[A, B] extends Source1[A] with Source[B] with Accumulate1[A] with Clo
   //The default implementation on Source1 is on the wrong sh.
   //Not worth it to change all code since it once the first
   //scheduler is closed there is no effect possible
-  source1.scheduler.executeBeforeStart({source1.addChannel(Channel1(this, source1.scheduler))})
+  source1.scheduler.executeBeforeStart({
+    source1.addChannel(Channel1(this, source1.scheduler))
+  })
 
+}
+
+
+object Batch {
+  def apply[A, B](rawSource11: Source[A], f1: ListT[A] => ListT[B], name1: String = "Batch") = new Batch[A, B] {
+    def rawSource1 = rawSource11
+    def name = name1
+    def f(x: ListT[A]) = f1(x)
+  }
 }
 
 case class ReplayWithScheduler[A](rawSource1: Source[A]) extends Batch[A, A] {
@@ -28,8 +47,11 @@ case class ReplayWithScheduler[A](rawSource1: Source[A]) extends Batch[A, A] {
   def f(lA: ListT[A]) = lA
 }
 
-
-case class Replay[A](rawSource1: Source[A], schedulerOut: Scheduler) extends Source1[A] with Source[A] with Accumulate1[A] with CloseListener {
+case class Replay[A](rawSource1: Source[A], schedulerOut: Scheduler)
+    extends Source1[A]
+    with Source[A]
+    with Accumulate1[A]
+    with CloseListener {
 
   def name = "Replay"
 
@@ -38,11 +60,13 @@ case class Replay[A](rawSource1: Source[A], schedulerOut: Scheduler) extends Sou
   override def closePriority = 1
   override def scheduler = schedulerOut
 
-  def close() = {
+  def onScheduleClose() = {
     accumulated1.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
   }
 
   //Same as above
-  schedulerClose.executeBeforeStart({source1.addChannel(Channel1(this, schedulerClose))})  
+  schedulerClose.executeBeforeStart({
+    source1.addChannel(Channel1(this, schedulerClose))
+  })
 
 }

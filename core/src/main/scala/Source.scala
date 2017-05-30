@@ -2,19 +2,31 @@ package dawn.flow
 
 import collection.mutable.Queue
 
-trait Source[A] extends Node {
-  parent =>
+trait Source[A] extends Node { parent =>
+
+  var closed = false
+
   private var channels = List[Channel[A]]()
 
   def scheduler: Scheduler
 
   def name: String
 
+  def close() {
+    closed = true
+  }
+
+  override def reset() = {
+    super.reset()
+    closed = false
+  }
+
   def addChannel(c: Channel[A]) =
     channels ::= c
 
   def broadcast(x: => Timestamped[A], t: Time = 0) =
-    channels.foreach(_.push(x, t))
+    if (!closed)
+      channels.foreach(_.push(x, t))
 
   override def toString = name
 
@@ -48,7 +60,7 @@ trait Source[A] extends Node {
           broadcast(x)
       }
 
-      def name                  = "Filter " + getStrOrElse(name1, b.toString)
+      def name = "Filter " + getStrOrElse(name1, b.toString)
       override def requireModel = RequireModel.isRequiring(b)
     }
 
@@ -63,7 +75,7 @@ trait Source[A] extends Node {
         broadcast(x)
       }
 
-      def name                  = "Foreach " + getStrOrElse(name1, f.toString)
+      def name = "Foreach " + getStrOrElse(name1, f.toString)
       override def requireModel = RequireModel.isRequiring(f)
     }
 
@@ -76,9 +88,11 @@ trait Source[A] extends Node {
       def listen1(x: Timestamped[A]) = {
         if (b(x))
           broadcast(x)
+        else
+          closed = true
       }
 
-      def name                  = "takeWhile " + getStrOrElse(name1, b.toString)
+      def name = "takeWhile " + getStrOrElse(name1, b.toString)
       override def requireModel = RequireModel.isRequiring(b)
     }
 
@@ -94,7 +108,7 @@ trait Source[A] extends Node {
         broadcast(mx)
       }
 
-      def name                  = "Map " + getStrOrElse(name1, f.toString)
+      def name = "Map " + getStrOrElse(name1, f.toString)
       override def requireModel = RequireModel.isRequiring(f)
     }
 
@@ -109,7 +123,7 @@ trait Source[A] extends Node {
         f(x).foreach(x => broadcast(x))
       }
 
-      def name                  = "FlatMap " + getStrOrElse(name1, f.toString)
+      def name = "FlatMap " + getStrOrElse(name1, f.toString)
       override def requireModel = RequireModel.isRequiring(f)
     }
 
@@ -120,7 +134,7 @@ trait Source[A] extends Node {
   def divider(n: Int) =
     new Op1[A, A] {
       def rawSource1 = parent
-      var i          = 0
+      var i = 0
       def listen1(x: Timestamped[A]) = {
         i += 1
         if (i % n == 0)
@@ -139,8 +153,8 @@ trait Source[A] extends Node {
 
   def zipT[B](s2: Source[B]) =
     new Op2[A, B, (Timestamped[A], Timestamped[B])] {
-      def rawSource1                = parent
-      def rawSource2                = s2
+      def rawSource1 = parent
+      def rawSource2 = s2
       val q1: Queue[Timestamped[A]] = Queue()
       val q2: Queue[Timestamped[B]] = Queue()
       def listen1(x: Timestamped[A]) = {
@@ -173,9 +187,9 @@ trait Source[A] extends Node {
 
   def zipLastT[B](s2: Source[B]): Source[(Timestamped[A], Timestamped[B])] =
     new Op2[A, B, (Timestamped[A], Timestamped[B])] {
-      def rawSource1                    = parent
-      def rawSource2                    = s2
-      val q1: Queue[Timestamped[A]]     = Queue()
+      def rawSource1 = parent
+      def rawSource2 = s2
+      val q1: Queue[Timestamped[A]] = Queue()
       var lastB: Option[Timestamped[B]] = None
 
       def listen1(x: Timestamped[A]) = {
@@ -220,11 +234,11 @@ trait Source[A] extends Node {
   def fusion(sources: Source[A]*): Source[A] = {
     def flatten(x: Either[A, A]): A =
       x match {
-        case Left(y)  => y
+        case Left(y) => y
         case Right(y) => y
       }
     sources.foldLeft(parent)((acc, pos) =>
-      acc.merge(pos).map(flatten _, "Fusion"))
+      acc.merge(pos).map(flatten, "Fusion"))
   }
 
   def latency(dt: Time) =
@@ -240,4 +254,3 @@ trait Source[A] extends Node {
     mapT(x => x.map(y => x.time))
 
 }
-

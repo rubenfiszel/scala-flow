@@ -1,19 +1,21 @@
 package dawn.flow.trajectory
 
 import dawn.flow._
-
 import org.jzy3d.chart.factories.AWTChartComponentFactory
 import org.jzy3d.colors.Color
-import org.jzy3d.maths.{Coord3d, Scale}
+import org.jzy3d.maths.Coord3d
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class Jzy3dVisualisation(val rawSource1: Source[TrajectoryPoint], kps: List[Timestamped[Keypoint]])(implicit val nodeHook: NodeHook) extends SinkBatch1[TrajectoryPoint] {
+class Jzy3dVisualisation(
+    val rawSource1: Source[TrajectoryPoint],
+    kps: List[Timestamped[Keypoint]])(implicit val nodeHook: NodeHook)
+    extends SinkBatch1[TrajectoryPoint] {
 
   def consumeAll(pts: ListT[TrajectoryPoint]) = {
 
-    val chart = AWTChartComponentFactory.chart(Quality.Advanced)    
-    val line  = new LineStrip()
+    val chart = AWTChartComponentFactory.chart(Quality.Advanced)
+    val line = new LineStrip()
 
     for (pt <- pts) {
       val p = pt.v.p
@@ -21,14 +23,14 @@ class Jzy3dVisualisation(val rawSource1: Source[TrajectoryPoint], kps: List[Time
       line.add(new Point(new Coord3d(p.x, p.y, p.z)))
     }
 
-
     for (kp <- kps.map(_.v.p).filter(_.isDefined).map(_.get)) {
-      val sph = new Sphere(new Coord3d(kp.x, kp.y, kp.z), 0.02f, 15, Color.random())
+      val sph =
+        new Sphere(new Coord3d(kp.x, kp.y, kp.z), 0.02f, 15, Color.random())
       sph.setWireframeDisplayed(false)
       chart.getScene().getGraph().add(sph)
     }
 
-    val p     = pts(0).v.p
+    val p = pts(0).v.p
     val point = new Sphere(new Coord3d(p.x, p.y, p.z), 0.02f, 20, Color.BLUE)
     point.setWireframeDisplayed(false)
     line.setWireframeColor(Color.RED)

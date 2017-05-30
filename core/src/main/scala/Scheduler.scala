@@ -4,19 +4,10 @@ import collection.mutable.PriorityQueue
 
 case class Event(t: Time, f: () => Unit)
 
-trait CloseListener { self =>
-  def closePriority: Int = 0
-  def schedulerClose: Scheduler
-  def close(): Unit
-  schedulerClose.addCloseListener(self)
-}
-
 object Scheduler {
   val BEFORE_START = -3
-  val AT_START     = 0
+  val AT_START = 0
 }
-
-case class SecondaryScheduler() extends Scheduler
 
 trait Scheduler {
 
@@ -24,7 +15,10 @@ trait Scheduler {
     pc: CloseListener =>
       pc.closePriority
   }
+
   val closeListeners = PriorityQueue[CloseListener]()
+
+  var childSchedulers = List[Scheduler]()
 
   def addCloseListener(cl: CloseListener) =
     closeListeners.enqueue(cl)
@@ -37,6 +31,12 @@ trait Scheduler {
 
   var now =
     0.0
+
+  def reset(): Unit = {
+    now = 0.0
+    pq.dequeueAll
+    childSchedulers.foreach(_.reset())
+  }
 
   def registerEvent(f: => Unit, t: Time): Unit = {
     pq.enqueue(Event(t, () => f))
@@ -60,8 +60,7 @@ trait Scheduler {
       now = dq.t
       dq.f()
     }
-    closeListeners.dequeueAll.foreach(_.close())
+    closeListeners.dequeueAll.foreach(_.onScheduleClose())
   }
 
 }
-

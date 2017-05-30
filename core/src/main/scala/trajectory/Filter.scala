@@ -16,17 +16,18 @@ import breeze.linalg.{
 }
 //https://pdfs.semanticscholar.org/480b/7477c76a1b2b2b130923f09a66ecdb0fb910.pdf
 
-case class OrientationComplementaryFilter(rawSource1: Source[Acceleration],
-                                          rawSource2: Source[BodyRates],
-                                          rawSource3: Source[(Thrust, BodyRates)],
-                                          init: Quat,
-                                          alpha: Real,
-                                          dt: Timeframe)
+case class OrientationComplementaryFilter(
+    rawSource1: Source[Acceleration],
+    rawSource2: Source[BodyRates],
+    rawSource3: Source[(Thrust, BodyRates)],
+    init: Quat,
+    alpha: Real,
+    dt: Timeframe)
     extends Block3[Acceleration, BodyRates, (Thrust, BodyRates), Quat] {
 
   def name = "OCF"
-  val acc    = source1
-  val gyro   = source2
+  val acc = source1
+  val gyro = source2
   val thrust = source3.map(_._1)
 
   def attitudeAcc(atv: ((Acceleration, Thrust), Quat)) = {
@@ -42,9 +43,8 @@ case class OrientationComplementaryFilter(rawSource1: Source[Acceleration],
   lazy val bodyRateInteg = Integrate(gyro, dt)
   lazy val gyroQuatLocal = bodyRateInteg
     .zip(buffer)
-    .map(
-      (qv: (Vec3, Quat)) => TQuaternion.localAngleToLocalQuat(qv._2, qv._1),
-      "BR2Quat")
+    .map((qv: (Vec3, Quat)) => TQuaternion.localAngleToLocalQuat(qv._2, qv._1),
+         "BR2Quat")
   lazy val gyroQuat = gyroQuatLocal.zip(buffer).map(x => x._1.rotateBy(x._2))
 
   lazy val out =
@@ -67,24 +67,32 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
                           dt: Timeframe,
                           N: Int,
                           bodyRateStd: DenseMatrix[Real])
-    extends Block4[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat]
-{
+    extends Block4[Acceleration,
+                   BodyRates,
+                   (Thrust, BodyRates),
+                   (Position, Quat),
+                   Quat] {
 
   def name = "ParticleFilter"
   type Weight = Real
-  case class State(w: Weight, q: Quat, br: BodyRates, p: Position, v: Velocity, a: Acceleration)
+  case class State(w: Weight,
+                   q: Quat,
+                   br: BodyRates,
+                   p: Position,
+                   v: Velocity,
+                   a: Acceleration)
 
   def sampleBR(q: Quat, br: BodyRates): Quat = {
-    val withNoise  = Rand.gaussian(br, bodyRateStd)
+    val withNoise = Rand.gaussian(br, bodyRateStd)
     val integrated = withNoise * dt
-    val lq         = TQuaternion.localAngleToLocalQuat(q, integrated)
+    val lq = TQuaternion.localAngleToLocalQuat(q, integrated)
     lq.rotateBy(q)
   }
 
   //http://users.isy.liu.se/rt/schon/Publications/HolSG2006.pdf
   //See systematic resampling
   def resample(sb: Seq[State]) = {
-    val u  = Rand.uniform()
+    val u = Rand.uniform()
     val us = Array.tabulate(N)(i => (i + u) / N)
     val ws = sb.map(_.w).scanLeft(0.0)(_ + _)
     val ns = Array.fill(N)(0)
@@ -128,33 +136,31 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
       .normalized
   }
 
-
   //TODO HANDLE DIFFERENT INITIAL POSSIBLE POSITIONS + resample + accelerometer for attitude + vicon + integrate acceleration
   lazy val particlesGyro: Source[Seq[State]] =
     source2
       .zipLast(buffer)
-      .map(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
+      .map(x =>
+        x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
 
   lazy val particlesAcc =
     source1
       .zipLast(buffer)
       .map(_._2)
 
-
   lazy val fused =
     particlesGyro
 //      .fusion(particlesAcc)
 //      .map(resample)
 
-
   lazy val buffer: Source[Seq[State]] =
     Buffer(fused,
-      Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())), scheduler)
+           Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())),
+           scheduler)
 
   lazy val out: Source[Quat] =
     fused
       .map(_.map(x => (x.w, x.q)))
       .map(averageQuaternions)
-
 
 }

@@ -6,33 +6,31 @@ import breeze.linalg.{DenseVector, DenseMatrix}
 import scala.language.implicitConversions
 import spire.math.Quaternion
 import spire.implicits._
-import io.circe.generic.JsonCodec
 import scala.collection.GenSeq
 import io.circe._
 
 package object flow {
 
-  //Common seed 
+  //Common seed
   val Random = RandBasis.withSeed(1234567)
 
-
   //Common type aliases
-  type Real      = Double
-  type Timestep  = Real
+  type Real = Double
+  type Timestep = Real
   type Timeframe = Real
-  type Time      = Real
+  type Time = Real
 
   type Rate = Long
   def toReal(x: Timestep) = x.toDouble
 
   type NormalVector = Vec3
-  type Jerk         = Vec3
-  type Velocity     = Vec3
-  type Position     = Vec3
+  type Jerk = Vec3
+  type Velocity = Vec3
+  type Position = Vec3
   type Acceleration = Vec3
-  type Thrust       = Real
-  type Omega        = Real
-  type BodyRates    = Vec3
+  type Thrust = Real
+  type Omega = Real
+  type BodyRates = Vec3
 
   type VectorR = DenseVector[Real]
   type MatrixR = DenseMatrix[Real]
@@ -44,21 +42,10 @@ package object flow {
 
   //Less Timestamped boilerplate
 
-
   implicit object PrimaryScheduler extends Scheduler
 
   implicit object PrimaryNodeHook extends NodeHook
 
-  trait NodeHook {
-
-    var l = List[Node]()
-
-    def addNode(s: Node) =
-      l ::= s
-
-    def drawGraph() =
-      Node.drawGraph(l.toSeq)
-  }
   //******* Data (as in transformable in array of Real **********
 
   implicit object RealData extends Data[Real] {
@@ -69,13 +56,10 @@ package object flow {
     def toValues(x: DenseVector[Real]) = x.toArray.toSeq
   }
 
-
   //****** Source to specific Ops Source
 
-  implicit def toStreamSource[A](
-      s: Source[Stream[A]]): StreamSource[A] =
+  implicit def toStreamSource[A](s: Source[Stream[A]]): StreamSource[A] =
     new StreamSource(s)
-
 
   //***** Vec (as in some Ops common in "vectors". Scalars are 1D vectors)
 
@@ -84,38 +68,38 @@ package object flow {
   //For now it will be enough
   //TODO: Make it generic instead of specific to Double
 
-
-
   implicit val doubleVec = new Vec[Double] {
     def scale(x: Double, y: Double) = x * y
     def plus(x: Double, y: Double) = x + y
-    def minus(x: Double, y: Double) = x - y    
+    def minus(x: Double, y: Double) = x - y
   }
 
   implicit val DVdoubleVec = new Vec[DenseVector[Double]] {
     def scale(x: DenseVector[Double], y: Double) = x * y
     def plus(x: DenseVector[Double], y: DenseVector[Double]) = x + y
-    def minus(x: DenseVector[Double], y: DenseVector[Double]) = x - y    
+    def minus(x: DenseVector[Double], y: DenseVector[Double]) = x - y
   }
 
   implicit val QuatdoubleVec = new Vec[Quat] {
     def scale(x: Quat, y: Double) = x * y
     def plus(x: Quat, y: Quat) = x + y
-    def minus(x: Quat, y: Quat) = x - y    
+    def minus(x: Quat, y: Quat) = x - y
   }
 
   implicit class VecOps[A: Vec](x: A) {
     val v = implicitly[Vec[A]]
     def *(y: Double) = v.scale(x, y)
     def +(y: A) = v.plus(x, y)
-    def -(y: A) = v.minus(x, y)    
+    def -(y: A) = v.minus(x, y)
   }
 
   implicit def tsVecToVec[A: Vec] = new Vec[Timestamped[A]] {
     val aVec = implicitly[Vec[A]]
     def scale(x: Timestamped[A], y: Double) = x.map(z => aVec.scale(z, y))
-    def plus(x: Timestamped[A], y: Timestamped[A]) = x.map(z => aVec.plus(z, y.v))
-    def minus(x: Timestamped[A], y: Timestamped[A]) = x.map(z => aVec.minus(z, y.v))
+    def plus(x: Timestamped[A], y: Timestamped[A]) =
+      x.map(z => aVec.plus(z, y.v))
+    def minus(x: Timestamped[A], y: Timestamped[A]) =
+      x.map(z => aVec.minus(z, y.v))
   }
 
   //********* Utils *************
@@ -141,12 +125,11 @@ package object flow {
     def z = dv(2)
   }
 
-
   object Vec3 {
     def zero = Vec3(0, 0, 0)
-    def one  = Vec3(1, 1, 1)
+    def one = Vec3(1, 1, 1)
 
-    def apply(x: Real = 0, y: Real = 0, z: Real = 0): Vec3 = 
+    def apply(x: Real = 0, y: Real = 0, z: Real = 0): Vec3 =
       DenseVector(x, y, z)
 
 //    def apply(gs: Vector[Real]): Vec3 =
@@ -157,19 +140,19 @@ package object flow {
       DenseVector(gs(0), gs(1), gs(2))
     }
   }
-  
-  implicit val encodeDV: Encoder[DenseVector[Real]] = new Encoder[DenseVector[Real]] {
-    def apply(x: DenseVector[Real]) =
-      Json.fromValues(x.map(y => Json.fromDouble(y).get).toArray)
-  }
 
-  implicit val decodeDV: Decoder[DenseVector[Real]] = new Decoder[DenseVector[Real]] {
-    def apply(x: HCursor) =
-      for {
-        v <- x.downArray.as[Array[Double]]
-      }
-      yield
-        Vec3(v)
-  }
-  
+  implicit val encodeDV: Encoder[DenseVector[Real]] =
+    new Encoder[DenseVector[Real]] {
+      def apply(x: DenseVector[Real]) =
+        Json.fromValues(x.map(y => Json.fromDouble(y).get).toArray)
+    }
+
+  implicit val decodeDV: Decoder[DenseVector[Real]] =
+    new Decoder[DenseVector[Real]] {
+      def apply(x: HCursor) =
+        for {
+          v <- x.downArray.as[Array[Double]]
+        } yield Vec3(v)
+    }
+
 }

@@ -11,7 +11,7 @@ case class ComplementaryFilter[A: Vec](rawSource1: Source[A],
                                        alpha: Real)
     extends Block2[A, A, A] {
 
-  def name     = "ComplFilter"
+  def name = "ComplFilter"
   lazy val lpf = LowPassFilter(source1, init, alpha)
   lazy val hpf = HighPassFilter(source2, init, (1 - alpha))
   lazy val zip = lpf.zip(hpf)
@@ -32,7 +32,7 @@ case class LowPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
   }
 
   lazy val bYnm: Source[A] = Buffer(out, init, scheduler)
-  lazy val out             = source1.zip(bYnm).map(f _)
+  lazy val out = source1.zip(bYnm).map(f _)
 
 }
 
@@ -42,7 +42,7 @@ case class HighPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
   def name = "HPF"
   def f(xnXnmYnm: (A, (A, A))) = {
     val (xn, (xnm, ynm)) = xnXnmYnm
-    val yn               = (xn + ynm - xnm) * alpha
+    val yn = (xn + ynm - xnm) * alpha
     (xn, yn)
   }
 
@@ -52,6 +52,6 @@ case class HighPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
   val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init), scheduler)
 
   def source = source1
-  val out    = common.map(_._2)
+  val out = common.map(_._2)
 
 }

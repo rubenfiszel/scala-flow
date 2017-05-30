@@ -38,4 +38,3 @@ trait RequireModel[M] {
     model = Some(x)
   })
 }
-

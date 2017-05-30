@@ -19,8 +19,7 @@ trait VectorSensor[M] extends Sensor[Vec3, M] {
   def genVector(p: M, t: Time): Vec3
 
   def generate(p: M, t: Time) =
-    Rand.gaussian(genVector(p, t), cov)  //WITH NOISE
+    Rand.gaussian(genVector(p, t), cov) //WITH NOISE
 //    genVector(p, t) //NO NOISE
 
 }
-

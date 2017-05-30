@@ -2,11 +2,6 @@ package dawn.flow.trajectory
 
 import dawn.flow._
 
-import breeze.linalg._
-import breeze.stats.distributions._
-import spire.math.{Real => _, _ => _}
-import spire.implicits._
-
 object DroneParticle extends App {
 
   //****** Model ******
@@ -22,27 +17,21 @@ object DroneParticle extends App {
     "toPoints")
 
   //filter parameter
-  val cov   = Config.cov
-  val covQ  = Config.covQ
+  val cov = Config.cov
+  val covQ = Config.covQ
   val initQ = Config.initQ
 
-  val accelerometer = clock.map(Accelerometer(cov))//.latency(dt / 2)
-  val gyroscope    = clock.map(Gyroscope(cov, dt))
+  val accelerometer = clock.map(Accelerometer(cov)) //.latency(dt / 2)
+  val gyroscope = clock.map(Gyroscope(cov, dt))
   val controlInput = clock.map(ControlInput(1, cov, dt))
-  val vicon        = clock.map(Vicon(cov, covQ))
+  val vicon = clock.map(Vicon(cov, covQ))
 
-  /* batch example
-  val batch = new Batch[Acceleration, Acceleration] {
-    def name = "id batch"
-    def source1 = accelerometer
-    def f(x: ListT[Acceleration]) = x
-  }
+//  /* batch example
+  val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
 
 
-
-  val replay = Replay(accelerometer, batch.sh)
-  Plot2(batch, replay)
-   */
+  Plot2(batch, accelerometer)
+//   */
 
   val filter =
     ParticleFilter(accelerometer,
@@ -54,11 +43,8 @@ object DroneParticle extends App {
                    10,
                    cov)
 
-
   val qs =
     points.map(_.q, "toQ")
-
-
 
   def awt() = {
     new Jzy3dVisualisation(points, traj.getKeypoints)
@@ -87,5 +73,9 @@ object DroneParticle extends App {
 
   PrimaryNodeHook.drawGraph()
   PrimaryScheduler.run()
+
+  PrimaryScheduler.reset()
+  PrimaryNodeHook.reset()  
+  PrimaryScheduler.run()    
 
 }

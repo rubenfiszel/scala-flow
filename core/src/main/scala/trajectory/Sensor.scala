@@ -26,15 +26,20 @@ case class Vicon(covP: MatrixR, covQ: MatrixR)(
     extends Sensor[(Position, Quat), Trajectory] {
 
   def generate(traj: Trajectory, t: Time) =
-    (Rand.gaussian(traj.getPosition(t), covP), Rand.gaussian(traj.getOrientationQuaternion(t).toDenseVector, covQ).toQuaternion)
+    (Rand.gaussian(traj.getPosition(t), covP),
+     Rand
+       .gaussian(traj.getOrientationQuaternion(t).toDenseVector, covQ)
+       .toQuaternion)
 
 }
 
-case class ControlInput(std: Real, covBR: MatrixR, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
+case class ControlInput(std: Real, covBR: MatrixR, dt: Timestep)(
+    implicit val modelHook: ModelHook[Trajectory])
     extends Sensor[(Thrust, BodyRates), Trajectory] {
 
   def generate(traj: Trajectory, t: Time) =
-    (Rand.gaussian(traj.getThrust(t), std), Rand.gaussian(traj.getBodyRates(t, dt), covBR))
+    (Rand.gaussian(traj.getThrust(t), std),
+     Rand.gaussian(traj.getBodyRates(t, dt), covBR))
 
 }
 

@@ -9,10 +9,10 @@ case class TestTS[A: Data](rawSource1: Source[A],
     extends SinkBatch2[A, A] {
 
   def toInterpolation(l: Array[Timestamped[A]]) = {
-    val toV   = implicitly[Data[A]]
-    val ts_x  = DenseVector(l.map(_.time))
-    val min   = ts_x.min
-    val max   = ts_x.max
+    val toV = implicitly[Data[A]]
+    val ts_x = DenseVector(l.map(_.time))
+    val min = ts_x.min
+    val max = ts_x.max
     val ts_yt = l.map(x => toV.toValues(x.v))
     val ts_ys =
       (0 until ts_yt(0).length).map(i => DenseVector(ts_yt.map(_(i))))
@@ -36,11 +36,11 @@ case class TestTS[A: Data](rawSource1: Source[A],
     val lspace = linspace(minG, maxG, nb)
     val errs =
       datas.zip(truth).map(y => lspace.map(i => Math.abs(y._1(i) - y._2(i))))
-    val sums  = errs.map(_.sum)
+    val sums = errs.map(_.sum)
     val sumSq = errs.map(_.map(x => x * x).sum)
-    val maxs  = errs.map(_.max)
-    val avgs  = sums.map(_ / nb)
-    val rmse  = sumSq.map(_ / nb)
+    val maxs = errs.map(_.max)
+    val avgs = sums.map(_ / nb)
+    val rmse = sumSq.map(_ / nb)
 
     val rmseS = rmse.map(e => f"$e%e").mkString(", ")
     val avgsS = avgs.map(e => f"$e%e").mkString(", ")

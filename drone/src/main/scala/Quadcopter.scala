@@ -123,10 +123,10 @@ case class SingleAxisQuadTrajectory(init: SingleAxisInit,
 }
 
 sealed trait Feasibility
-case object ThrustTooHigh  extends Feasibility
-case object ThrustTooLow   extends Feasibility
+case object ThrustTooHigh extends Feasibility
+case object ThrustTooLow extends Feasibility
 case object Indeterminable extends Feasibility
-case object Feasible       extends Feasibility
+case object Feasible extends Feasibility
 
 case class QuadTrajectorySection(init: Init = Init.zero,
                                  goal: Keypoint = Keypoint.one,
@@ -154,10 +154,9 @@ case class QuadTrajectorySection(init: Init = Init.zero,
   def getThrust(t: Time): Thrust =
     norm((getAcceleration(t) - g))
 
-//  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 = 
+//  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 =
 //    Trajectory.bodyRate(Vec3(getNormalVector(t)),
 //      Vec3(getNormalVector(t + dt)), dt)
-
 
   lazy val cost =
     axis.map(_.cost).sum
@@ -182,8 +181,8 @@ case class QuadTrajectorySection(init: Init = Init.zero,
         axis.zip(g.toArray).foreach {
           case (ax, g) => {
             val (amin, amax) = ax.getMinMaxAcc(t1, t2)
-            val v1           = amin - g
-            val v2           = amax - g
+            val v1 = amin - g
+            val v2 = amax - g
 
             if (max(v1 ** 2, v2 ** 2) > fmaxAllowed ** 2)
               return ThrustTooHigh
@@ -216,7 +215,7 @@ case class QuadTrajectorySection(init: Init = Init.zero,
 
         if ((fmin < fminAllowed) || (fmax > fmaxAllowed) || (wBound > wmaxAllowed)) {
           val tHalf = (t1 + t2) / 2.0
-          val r1    = section(t1, tHalf)
+          val r1 = section(t1, tHalf)
 
           if (r1 == Feasible)
             return section(tHalf, t2)
@@ -256,8 +255,8 @@ case class QuadTrajectory(init: Init,
     keypoints.map(_._2).sum
 
   def getSection(t: Time) = {
-    var nt     = t
-    var kps    = keypoints
+    var nt = t
+    var kps = keypoints
     var offset = 0
     while (!kps.isEmpty && nt >= kps.head._2) {
       nt -= kps.head._2
@@ -286,12 +285,9 @@ case class QuadTrajectory(init: Init,
 
   def getNormalVector(t: Time): NormalVector =
     get(_.getNormalVector(_), t)
-  
+
   def getThrust(t: Time): Thrust =
     get(_.getThrust(_), t)
-
- 
-  
 
   lazy val cost =
     combined.map(_.cost).sum

@@ -6,7 +6,7 @@ trait Block[A] { parent: Source[A] =>
   new Op1[A, A] {
     def rawSource1 = out
     def listen1(x: Timestamped[A]) =
-      parent.broadcast(x)    
+      parent.broadcast(x)
     def name = "Op Block"
   }
 }

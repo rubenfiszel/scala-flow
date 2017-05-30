@@ -7,13 +7,12 @@ import breeze.stats.distributions._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
-
 object TrajFactory {
 
   def generate() = {
-    val init      = Init(Vec3.zero, Vec3.zero, Vec3.zero)
+    val init = Init(Vec3.zero, Vec3.zero, Vec3.zero)
     var keypoints = List[Keypoint]()
-    var tfs       = List[Time]()
+    var tfs = List[Time]()
 
     //Keypoint 1
     keypoints ::= Keypoint(Some(Vec3(0, 0.75, 1.0)),
@@ -39,6 +38,5 @@ object TrajFactory {
     traj.warn()
     traj
   }
-
 
 }

@@ -14,7 +14,7 @@ trait Trajectory extends Model {
 
   def getKeypoints = {
     var t = 0.0
-    keypoints.map(x => {t += x._2; Timestamped(t, x._1 )})
+    keypoints.map(x => { t += x._2; Timestamped(t, x._1) })
   }
 
   def getPosition(t: Time): Position
@@ -25,8 +25,7 @@ trait Trajectory extends Model {
 
   //Acceleration + G
   def getFullAcceleration(t: Time): Acceleration =
-   getAcceleration(t) + gravity    
-
+    getAcceleration(t) + gravity
 
   //TODO: getAcceleration in Local coordinate you retard
   //Acceleration in the local referential of the drone
@@ -51,10 +50,9 @@ trait Trajectory extends Model {
       if (t > tf) {
         println("[Warning] time over tf")
         tf
-      }
-      else
+      } else
         t
-    
+
     TQuaternion.getQuaternion(
       Vec3(0, 0, 1),
       getNormalVector(rt)
@@ -64,10 +62,10 @@ trait Trajectory extends Model {
   //avoid end of trajectory sampling annoyance
   //by "replaying" the last possible sample
   def lastPossibleDelta(t: Time, dt: Timestep) =
-      if ((t + dt) >= tf)
-        tf - 1.1*dt
-      else
-        t
+    if ((t + dt) >= tf)
+      tf - 1.1 * dt
+    else
+      t
 
   def getQuaternionRotation(t: Time, dt: Timestep) = {
     val rt = lastPossibleDelta(t, dt)
@@ -78,7 +76,7 @@ trait Trajectory extends Model {
   def getBodyRates(t: Time, dt: Timestep): Vec3 = {
     val rt = lastPossibleDelta(t, dt)
     TQuaternion.quatToAxisAngle(getOrientationQuaternion(rt),
-                              getOrientationQuaternion(rt + dt)) / dt
+                                getOrientationQuaternion(rt + dt)) / dt
   }
 
   def getPoint(t: Time, dt: Timestep = 1e-3): TrajectoryPoint =
@@ -93,10 +91,14 @@ trait Trajectory extends Model {
 
 }
 
-
-case class TrajectoryClock(dt: Timestep)(implicit val modelHook: ModelHook[Trajectory], val scheduler: Scheduler) extends EmitterStream[Time] with RequireModel[Trajectory] {
+case class TrajectoryClock(dt: Timestep)(
+    implicit val modelHook: ModelHook[Trajectory],
+    val scheduler: Scheduler)
+    extends EmitterStream[Time]
+    with RequireModel[Trajectory] {
   def name = "TrajectoryClock " + dt
-  def stream() = Clock.genPerfectTimes(dt).takeWhile(_ < model.get.tf).map(x => (x, x))
+  def stream() =
+    Clock.genPerfectTimes(dt).takeWhile(_ < model.get.tf).map(x => (x, x))
 }
 
 @JsonCodec
@@ -124,7 +126,7 @@ case class Keypoint(p: Option[Vec3], v: Option[Vec3], a: Option[Vec3]) {
 
 object Keypoint {
   def apply(p: Vec3): Keypoint = Keypoint(Some(p), None, None)
-  def one                      = Keypoint(Some(Vec3.one), Some(Vec3.one), Some(Vec3.one))
+  def one = Keypoint(Some(Vec3.one), Some(Vec3.one), Some(Vec3.one))
 }
 
 case class SingleAxisInit(p: Real, v: Real, a: Real)

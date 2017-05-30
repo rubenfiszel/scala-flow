@@ -1,6 +1,4 @@
 package dawn.flow
-
-
 /*
 case class Simulation[M](scheduler: Scheduler = SimpleScheduler)(implicit mc: ModelCallBack[M]) {
 

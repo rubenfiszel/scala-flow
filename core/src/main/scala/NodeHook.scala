@@ -9,4 +9,7 @@ trait NodeHook {
 
   def drawGraph() =
     Node.drawGraph(l.toSeq)
+
+  def reset() =
+    Node.reset(l.toSeq)  
 }
