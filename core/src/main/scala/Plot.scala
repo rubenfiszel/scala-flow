@@ -3,8 +3,7 @@ package dawn.flow
 import breeze.plot._
 import breeze.linalg._
 
-case class Plot[A: Data](rawSource1: Source[A])
-    extends SinkBatch1[A] {
+case class Plot[A: Data](rawSource1: Source[A]) extends SinkBatch1[A] {
 
   var i = 0
 
@@ -15,7 +14,7 @@ case class Plot[A: Data](rawSource1: Source[A])
     val y = st.map(x => data.toValues(x.v))
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
 
-    val f = new Figure("fig "+i, ys.length, 1)
+    val f = new Figure("fig " + i, ys.length, 1)
     ys.zipWithIndex.foreach {
       case (v, i) => {
         val p = f.subplot(i)
@@ -46,7 +45,7 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
     val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))
 
-    val f = new Figure("fig "+i, ys.length, 1)
+    val f = new Figure("fig " + i, ys.length, 1)
     val titles =
       if (ys.length == 3)
         Seq("x", "y", "z")

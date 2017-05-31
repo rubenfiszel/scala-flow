@@ -13,11 +13,12 @@ trait NodeHook {
     nodes ::= s
   }
 
-  def sinks = nodes.filter(x => x match {
-    case s: Sink => true
-    case _ => false
-  })
-  
+  def sinks =
+    nodes.filter(x =>
+      x match {
+        case s: Sink => true
+        case _ => false
+    })
 
   def getSources(n: Node) = n match {
     case x: Buffer[_] => List()
@@ -35,15 +36,14 @@ trait NodeHook {
   def expand() = {
     //Trick to access once sources and generate Replay op
     val length = nodes.flatMap(_.sources).length
-    println("Done expansion " + length + " blocks" )
+    println("Done expansion " + length + " blocks")
   }
-  
+
   def setup() = {
     expand()
     val sorted = GraphUtils.topologicalSort(toGraph(nodes)).get.reverse
     sorted.foreach(_.setup())
     println("Done setup")
   }
-
 
 }

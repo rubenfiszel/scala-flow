@@ -20,8 +20,8 @@ object Clock {
 
 }
 
-case class Clock(dt: Timestep)(
-    implicit val schedulerHook: SchedulerHook, val nodeHook: NodeHook)
+case class Clock(dt: Timestep)(implicit val schedulerHook: SchedulerHook,
+                               val nodeHook: NodeHook)
     extends EmitterStream[Time] {
 
   def name = "Clock " + dt
@@ -48,7 +48,7 @@ trait Buffer[A] extends Op1[A, A] {
   def listen1(x: Timestamped[A]) =
     broadcast(x)
 
-  def bcInit() = 
+  def bcInit() =
     scheduler.executeAtStart(broadcast(Timestamped(init)))
 
   bcInit()

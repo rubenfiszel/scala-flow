@@ -13,7 +13,7 @@ object Scheduler {
   val AT_START = 0
 
   var i = 0
-  def newOne() = NewScheduler({i+=1; i})
+  def newOne() = NewScheduler({ i += 1; i })
 }
 
 trait Scheduler {
@@ -38,7 +38,6 @@ trait Scheduler {
 
   var now =
     0.0
-
 
   def registerEvent(f: => Unit, t: Time): Unit = {
     pq.enqueue(Event(t, () => f))

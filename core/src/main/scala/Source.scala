@@ -2,8 +2,7 @@ package dawn.flow
 
 import collection.mutable.Queue
 
-trait Source[A] extends Node {
-  parent =>
+trait Source[A] extends Node { parent =>
 
   var closed = false
 

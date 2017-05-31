@@ -60,7 +60,7 @@ package object flow {
 
   implicit def toTimeSource(s: Source[Time]): TimeSource =
     new TimeSource(s)
-  
+
   implicit def toStreamSource[A](s: Source[Stream[A]]): StreamSource[A] =
     new StreamSource(s)
 

@@ -30,14 +30,15 @@ trait Batch[A, B]
     schedulerL = new Scheduler {}
     source1.scheduler.childSchedulers ::= scheduler
     source1.addChannel(Channel1(this, source1.scheduler))
-    super.setup()    
+    super.setup()
   }
 
 }
 
-
 object Batch {
-  def apply[A, B](rawSource11: Source[A], f1: ListT[A] => ListT[B], name1: String = "Batch") = new Batch[A, B] {
+  def apply[A, B](rawSource11: Source[A],
+                  f1: ListT[A] => ListT[B],
+                  name1: String = "Batch") = new Batch[A, B] {
     def rawSource1 = rawSource11
     def name = name1
     def f(x: ListT[A]) = f1(x)
@@ -59,7 +60,6 @@ case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
 
   def schedulerClose = source1.scheduler
 
-
   //clever trick to make topological sort order depend on the sourceOut schedule
   override def sources = sourceOut :: super.sources
 
@@ -71,7 +71,7 @@ case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
 
   //Same as above
   override def setup() = {
-    source1.addChannel(Channel1(this, source1.scheduler))    
+    source1.addChannel(Channel1(this, source1.scheduler))
     super.setup()
   }
 

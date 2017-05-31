@@ -8,7 +8,7 @@ trait Source0 extends SourceN {
   def schedulerHook: SchedulerHook
   def scheduler = schedulerHook.scheduler
   lazy val sources: List[Node] = List()
-  lazy val rawSources: List[Node] = List()  
+  lazy val rawSources: List[Node] = List()
 }
 
 trait Source1[A] extends Node { self =>
@@ -18,7 +18,7 @@ trait Source1[A] extends Node { self =>
   def rawSource1: Source[A]
   def source1: Source[A] = rawSource1
   override def rawSources: List[Node] = List(rawSource1)
-  override def sources: List[Node] = List(source1)  
+  override def sources: List[Node] = List(source1)
   def listen1(x: Timestamped[A])
 
   //Memoization to avoid recreating clone
@@ -56,9 +56,9 @@ trait Source1[A] extends Node { self =>
 
 trait Source2[A, B] extends Source1[A] { self =>
   def rawSource2: Source[B]
-  override def rawSources = rawSource2 :: super.rawSources  
+  override def rawSources = rawSource2 :: super.rawSources
   override def sources = source2 :: super.sources
-  
+
   def listen2(x: Timestamped[B])
 
   override def source1: Source[A] =
@@ -76,7 +76,7 @@ trait Source2[A, B] extends Source1[A] { self =>
 trait Source3[A, B, C] extends Source2[A, B] { self =>
   def rawSource3: Source[C]
   override def rawSources = rawSource3 :: super.rawSources
-  override def sources = source3 :: super.sources    
+  override def sources = source3 :: super.sources
   def listen3(x: Timestamped[C])
 
   override def source1: Source[A] =
@@ -98,7 +98,7 @@ trait Source3[A, B, C] extends Source2[A, B] { self =>
 trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   def rawSource4: Source[D]
   override def rawSources = rawSource4 :: super.rawSources
-  override def sources = source4 :: super.sources      
+  override def sources = source4 :: super.sources
   def listen4(x: Timestamped[D])
 
   override def source1: Source[A] =

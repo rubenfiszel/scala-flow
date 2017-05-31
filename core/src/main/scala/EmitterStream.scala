@@ -12,7 +12,6 @@ trait EmitterStream[A] extends Source[A] with Source0 {
     }
   }
 
-
   override def setup() = {
     super.setup()
     iterator = stream().toIterator

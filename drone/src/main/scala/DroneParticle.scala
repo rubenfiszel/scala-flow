@@ -25,7 +25,7 @@ object DroneParticle extends FlowApp[Trajectory] {
   /* batch example
   val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
   Plot2(batch, accelerometer)
-  */
+   */
 
   val filter =
     ParticleFilter(accelerometer,
@@ -52,7 +52,7 @@ object DroneParticle extends FlowApp[Trajectory] {
     TestTS(filter, qs, 1000)
   }
 
-  figure()  
+  figure()
 //  testTS()
 //  awt()
 //  filter.println
@@ -61,6 +61,5 @@ object DroneParticle extends FlowApp[Trajectory] {
 
   run(traj)
   drawGraph
-
 
 }

@@ -93,12 +93,11 @@ trait Trajectory extends Model {
 
 case class TrajectoryClock(dt: Timestep)(
     implicit val modelHook: ModelHook[Trajectory],
-  val schedulerHook: SchedulerHook,
-  val nodeHook: NodeHook  
-)
- extends Block0[Time] 
+    val schedulerHook: SchedulerHook,
+    val nodeHook: NodeHook
+) extends Block0[Time]
     with RequireModel[Trajectory] {
-  def name = "TrajectoryClock "  + dt
+  def name = "TrajectoryClock " + dt
   lazy val out = Clock(dt).takeWhile(_ < model.get.tf)
 }
 

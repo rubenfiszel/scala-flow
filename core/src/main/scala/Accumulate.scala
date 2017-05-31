@@ -21,5 +21,5 @@ trait Accumulate2[A, B] extends Accumulate1[A] {
     super.setup()
     accumulated2 = List()
   }
-  
+
 }

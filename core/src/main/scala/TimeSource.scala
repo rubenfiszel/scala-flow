@@ -6,7 +6,7 @@ class TimeSource(source: Source[Time]) {
 
   def stop(tf: Timeframe) =
     source.takeWhile(_ < tf, "Stop")
-  
+
   def latencyVariance(mean: Real, std: Real) =
     new Op1[Time, Time] {
       def rawSource1 = source

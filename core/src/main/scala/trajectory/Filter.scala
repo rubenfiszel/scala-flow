@@ -145,18 +145,19 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
 
   lazy val particlesAcc =
     source1
+      .latency(0.0001)
       .zipLast(buffer)
       .map(_._2)
 
   lazy val fused =
     particlesGyro
-//      .fusion(particlesAcc)
-//      .map(resample)
+      .fusion(particlesAcc)
+      .map(resample)
 
   lazy val buffer: Source[Seq[State]] =
     Buffer(fused,
            Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())),
-      source1)
+           source1)
 
   lazy val out: Source[Quat] =
     fused
