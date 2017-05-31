@@ -1,6 +1,7 @@
 package dawn.flow.trajectory
 
 import dawn.flow._
+
 import breeze.linalg.{max => _, min => _, _ => _}
 import spire.math.{Real => _, _ => _}
 import spire.implicits._

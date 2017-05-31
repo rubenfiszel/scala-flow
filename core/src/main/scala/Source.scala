@@ -153,6 +153,8 @@ trait Source[A] extends Node { parent =>
     Timestamped(t, (x1, x2), dt)
   }
 
+  //Zip everthing
+  // A1 A2 B1 A3 B2 B3 B4 B5 A4=> (A1, B1), (A2, B2), (A3, B3), (A4, B4), [Queue[B5]]
   def zipT[B](s2: Source[B]) =
     new Op2[A, B, (Timestamped[A], Timestamped[B])] {
       def rawSource1 = parent
@@ -187,7 +189,9 @@ trait Source[A] extends Node { parent =>
   def zip[B](s2: Source[B]) =
     zipT(s2).mapT(mergeTS, "ZipT")
 
-  def zipLastT[B](s2: Source[B]): Source[(Timestamped[A], Timestamped[B])] =
+  //Only zip the last of the right
+  // A1 A2 B1 A3 B2 B3 B4 B5 A4=> (A1, B1), (A2, B2), (A3, B3), (A4, B5)
+  def zipLastRightT[B](s2: Source[B]): Source[(Timestamped[A], Timestamped[B])] =
     new Op2[A, B, (Timestamped[A], Timestamped[B])] {
       def rawSource1 = parent
       def rawSource2 = s2
@@ -209,8 +213,44 @@ trait Source[A] extends Node { parent =>
           lastB = Some(x)
         else {
           val dq = q1.dequeue()
+          lastB = None          
           broadcast(to2TS(dq, x))
+        }
+      }
+
+      def name = "ZipLastRight"
+    }
+
+  def zipLastRight[B](s2: Source[B]) =
+    zipLastRightT(s2).mapT(mergeTS, "ZipLastRightT")
+
+
+  //Only zip the last pair
+  // A1 A2 B1 A3 B2 B3 A4=> (A1, B1), (A3, B2), (B3, A4)
+  def zipLastT[B](s2: Source[B]): Source[(Timestamped[A], Timestamped[B])] =
+    new Op2[A, B, (Timestamped[A], Timestamped[B])] {
+      def rawSource1 = parent
+      def rawSource2 = s2
+      var lastA: Option[Timestamped[A]] = None      
+      var lastB: Option[Timestamped[B]] = None
+
+      def listen1(x: Timestamped[A]) = {
+        if (lastB.isEmpty)
+          lastA = Some(x)
+        else {
+          val lB = lastB.get
           lastB = None
+          broadcast(to2TS(x, lB))
+        }
+      }
+
+      def listen2(x: Timestamped[B]) = {
+        if (lastA.isEmpty)
+          lastB = Some(x)
+        else {
+          val lA = lastA.get
+          lastA = None          
+          broadcast(to2TS(lA, x))
         }
       }
 
@@ -219,7 +259,7 @@ trait Source[A] extends Node { parent =>
 
   def zipLast[B](s2: Source[B]) =
     zipLastT(s2).mapT(mergeTS, "ZipLastT")
-
+  
   def merge[B](s2: Source[B]): Source[Either[A, B]] =
     new Op2[A, B, Either[A, B]] {
       def rawSource1 = parent

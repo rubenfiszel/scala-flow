@@ -46,6 +46,9 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
     val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))
 
     val f = new Figure("fig " + i, ys.length, 1)
+    f.width = 1920
+    f.height = 1080
+    f.visible = false
     val titles =
       if (ys.length == 3)
         Seq("x", "y", "z")
@@ -62,5 +65,7 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
 //        p.ylim = (-1, 1)
       }
     }
+    f.visible = false    
+    f.saveas("plot.pdf", 50)
   }
 }

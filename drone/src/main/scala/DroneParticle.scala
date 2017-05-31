@@ -1,22 +1,26 @@
 package dawn.flow.trajectory
 
 import dawn.flow._
+import breeze.linalg._
+import spire.math.Quaternion
 
 object DroneParticle extends FlowApp[Trajectory] {
 
   //****** Model ******
-  val dt = Config.dt
+
+  val dt = 0.005
+
+  //filter parameter
+  val cov = DenseMatrix.eye[Real](3) * 0.1
+  val covQ = DenseMatrix.eye[Real](4) * 1.0
+  val initQ = Quaternion(1.0, 0, 0, 0)
+
 
   val clock = TrajectoryClock(dt)
   val points = clock.map(
     LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)),
     "toPoints")
-
-  //filter parameter
-  val cov = Config.cov
-  val covQ = Config.covQ
-  val initQ = Config.initQ
-
+  
   val accelerometer = clock.map(Accelerometer(cov)) //.latency(dt / 2)
   val gyroscope = clock.map(Gyroscope(cov, dt))
   val controlInput = clock.map(ControlInput(1, cov, dt))
@@ -52,7 +56,7 @@ object DroneParticle extends FlowApp[Trajectory] {
     TestTS(filter, qs, 1000)
   }
 
-//  figure()
+  figure()
   testTS()
 //  awt()
 //  filter.println
@@ -61,5 +65,6 @@ object DroneParticle extends FlowApp[Trajectory] {
 
   run(traj)
   drawExpandedGraph()
+  System.exit(0)
 
 }
