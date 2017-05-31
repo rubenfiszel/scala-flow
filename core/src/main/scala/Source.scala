@@ -15,6 +15,10 @@ trait Source[A] extends Node {
     closed = true
   }
 
+  override def setup() = {
+    closed = false
+  }
+
   def addChannel(c: Channel[A]) =
     channels ::= c
 
@@ -73,6 +77,9 @@ trait Source[A] extends Node {
       override def requireModel = RequireModel.isRequiring(f)
     }
 
+  def println(): Source[A] =
+    foreach(x => Console.println(x), "Println")
+
   def foreach(f: A => Unit, name1: String = ""): Source[A] =
     foreachT(liftUnit(f), name1)
 
@@ -82,8 +89,10 @@ trait Source[A] extends Node {
       def listen1(x: Timestamped[A]) = {
         if (b(x))
           broadcast(x)
-        else
+        else {
+          parent.closed = true
           closed = true
+        }
       }
 
       def name = "takeWhile " + getStrOrElse(name1, b.toString)

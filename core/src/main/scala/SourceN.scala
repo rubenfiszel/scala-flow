@@ -40,10 +40,8 @@ trait Source1[A] extends Node { self =>
   def overrideSourceX[C](lSource1: Source[A], lSourceX: Source[C]) = {
     os2
       .getOrElseUpdate((lSource1, lSourceX), {
-        if (lSource1.scheduler != lSourceX.scheduler) {
-          println(lSource1 + ":::::" + lSource1.scheduler.hashCode)
+        if (lSource1.scheduler != lSourceX.scheduler)
           Replay(lSourceX, lSource1)
-        }
         else
           lSourceX
       })
@@ -52,7 +50,6 @@ trait Source1[A] extends Node { self =>
 
   override def setup() = {
     super.setup()
-//    println(source1, self, scheduler)    
     source1.addChannel(Channel1(self, scheduler))
   }
 }

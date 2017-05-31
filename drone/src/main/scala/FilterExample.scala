@@ -11,7 +11,7 @@ object FilterExample extends App {
 
   val alpha = 0.5
 
-  val clock: Source[Time] = Clock(0.05, 2)
+  val clock: Source[Time] = Clock(0.05).stop(2)
   val ts = clock.map(Timestamp(1000))
   val ts2 = clock.map(Timestamp(1300))
   val fused = ts.fusion(ts2)
@@ -23,8 +23,7 @@ object FilterExample extends App {
 
   val plot = Plot(filt)
 
-  PrimarySchedulerHook.run()
-
+//  PrimarySchedulerHook.run()
   PrimaryNodeHook.drawGraph()
 
 }

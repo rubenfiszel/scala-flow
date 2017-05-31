@@ -32,10 +32,8 @@ trait SinkBatch2[A, B]
 
   def schedulerClose = scheduler
 
-  def onScheduleClose() = {
-    println(this, accumulated1.length, accumulated2.length)
+  def onScheduleClose() =
     consumeAll(accumulated1.reverse, accumulated2.reverse)
-  }
 
   def consumeAll(x: ListT[A], y: ListT[B]): Unit
 

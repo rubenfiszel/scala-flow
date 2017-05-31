@@ -19,13 +19,14 @@ object Clock {
   }
 
 }
-case class Clock(dt: Timestep, tf: Timeframe)(
+
+case class Clock(dt: Timestep)(
     implicit val schedulerHook: SchedulerHook, val nodeHook: NodeHook)
     extends EmitterStream[Time] {
 
   def name = "Clock " + dt
   def stream() =
-    Clock.genPerfectTimes(dt).takeWhile(_ < tf).map(x => (x, x))
+    Clock.genPerfectTimes(dt).map(x => (x, x))
 
 }
 

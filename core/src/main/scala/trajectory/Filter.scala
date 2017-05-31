@@ -30,7 +30,6 @@ case class OrientationComplementaryFilter(
   val gyro = source2
   val thrust = source3.map(_._1)
 
-  val fr = rawSource1.foreach(println)
   def attitudeAcc(atv: ((Acceleration, Thrust), Quat)) = {
     val ((a, th), q) = atv
     TQuaternion.getQuaternion(

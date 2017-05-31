@@ -31,14 +31,16 @@ trait NodeHook {
   def drawGraph() =
     Node.drawGraph(sinks.toSeq)
 
+  //Expand replay blocks
   def expand() = {
-    println(nodes.flatMap(_.sources).length) //Trick to access once sources
-    println("Done expansion")
+    //Trick to access once sources and generate Replay op
+    val length = nodes.flatMap(_.sources).length
+    println("Done expansion " + length + " blocks" )
   }
   
   def setup() = {
+    expand()
     val sorted = GraphUtils.topologicalSort(toGraph(nodes)).get.reverse
-    println(sorted)
     sorted.foreach(_.setup())
     println("Done setup")
   }

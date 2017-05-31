@@ -4,9 +4,16 @@ import collection.mutable.PriorityQueue
 
 case class Event(t: Time, f: () => Unit)
 
+case object FakeScheduler extends Scheduler
+
+case class NewScheduler(i: Int) extends Scheduler
+
 object Scheduler {
   val BEFORE_START = -3
   val AT_START = 0
+
+  var i = 0
+  def newOne() = NewScheduler({i+=1; i})
 }
 
 trait Scheduler {
@@ -55,7 +62,6 @@ trait Scheduler {
       now = dq.t
       dq.f()
     }
-    println(closeListeners.toList)
     closeListeners.dequeueAll.foreach(_.onScheduleClose())
   }
 

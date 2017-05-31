@@ -10,7 +10,7 @@ trait Batch[A, B]
 
   override def closePriority = -1
 
-  private var schedulerL: Scheduler = new Scheduler {}
+  private var schedulerL: Scheduler = Scheduler.newOne()
   override def scheduler: Scheduler = {
     schedulerL
   }
@@ -20,7 +20,6 @@ trait Batch[A, B]
   def onScheduleClose() = {
     val lB = f(accumulated1)
     lB.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
-    println("CLOSE", this, schedulerClose.hashCode)
     scheduler.run()
   }
 
@@ -29,7 +28,6 @@ trait Batch[A, B]
   //scheduler is closed there is no effect possible
   override def setup() = {
     schedulerL = new Scheduler {}
-    println(schedulerL.hashCode)
     source1.scheduler.childSchedulers ::= scheduler
     source1.addChannel(Channel1(this, source1.scheduler))
     super.setup()    
@@ -68,10 +66,8 @@ case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
   override def closePriority = 1
   override def scheduler = sourceOut.scheduler
 
-  def onScheduleClose() = {
-    println("CLOSE", this,  accumulated1.length, scheduler.hashCode)
+  def onScheduleClose() =
     accumulated1.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
-  }
 
   //Same as above
   override def setup() = {

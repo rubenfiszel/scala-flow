@@ -11,7 +11,7 @@ object Config {
 
   val dt = 0.005
 
-  val cov = DenseMatrix.eye[Real](3) * 1.0
+  val cov = DenseMatrix.eye[Real](3) * 0.1
   val covQ = DenseMatrix.eye[Real](4) * 1.0
   val initQ = Quaternion(1.0, 0, 0, 0)
 

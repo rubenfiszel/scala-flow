@@ -96,11 +96,10 @@ case class TrajectoryClock(dt: Timestep)(
   val schedulerHook: SchedulerHook,
   val nodeHook: NodeHook  
 )
-    extends EmitterStream[Time]
+ extends Block0[Time] 
     with RequireModel[Trajectory] {
-  def name = "TrajectoryClock " + dt
-  def stream() =
-    Clock.genPerfectTimes(dt).takeWhile(_ < model.get.tf).map(x => (x, x))
+  def name = "TrajectoryClock "  + dt
+  lazy val out = Clock(dt).takeWhile(_ < model.get.tf)
 }
 
 @JsonCodec

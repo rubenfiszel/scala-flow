@@ -2,14 +2,10 @@ package dawn.flow.trajectory
 
 import dawn.flow._
 
-object DroneParticle extends App {
+object DroneParticle extends FlowApp[Trajectory] {
 
   //****** Model ******
   val dt = Config.dt
-
-  val traj = TrajFactory.generate()
-
-  implicit val modelHook = ModelHook[Trajectory]
 
   val clock = TrajectoryClock(dt)
   val points = clock.map(
@@ -26,18 +22,10 @@ object DroneParticle extends App {
   val controlInput = clock.map(ControlInput(1, cov, dt))
   val vicon = clock.map(Vicon(cov, covQ))
 
-//  accelerometer.foreach(println)
-//  /* batch example
+  /* batch example
   val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
-
-//  val z2 = accelerometer.zip(batch)
-//  z2.foreach(println, "print")
-
-//  accelerometer.foreach(println, "print")
-//  batch.foreach(println, "print")
-
   Plot2(batch, accelerometer)
-//   */
+  */
 
   val filter =
     ParticleFilter(accelerometer,
@@ -56,11 +44,6 @@ object DroneParticle extends App {
     new Jzy3dVisualisation(points, traj.getKeypoints)
   }
 
-  def printJson() = {
-//    val jsonFilter  = JsonExport(filter)
-    PrintSink(filter)
-  }
-
   def figure() = {
     Plot2(filter, qs)
   }
@@ -69,19 +52,15 @@ object DroneParticle extends App {
     TestTS(filter, qs, 1000)
   }
 
+  figure()  
 //  testTS()
-  figure()
-
 //  awt()
-//  printJson()
+//  filter.println
 
-  modelHook.setModel(traj)
+  val traj = TrajFactory.generate()
 
-  PrimaryNodeHook.drawGraph()
-  PrimarySchedulerHook.run()
+  run(traj)
+  drawGraph
 
-  //PrimaryScheduler.reset()
-  //PrimaryNodeHook.reset()
-  //PrimaryScheduler.run()
 
 }

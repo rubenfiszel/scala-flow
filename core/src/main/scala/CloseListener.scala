@@ -7,7 +7,6 @@ trait CloseListener extends Node { self =>
 
   override def setup() = {
     super.setup()
-    println(self, schedulerClose.hashCode)
     schedulerClose.addCloseListener(self)
   }
 }

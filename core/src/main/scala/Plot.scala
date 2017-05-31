@@ -6,13 +6,16 @@ import breeze.linalg._
 case class Plot[A: Data](rawSource1: Source[A])
     extends SinkBatch1[A] {
 
+  var i = 0
+
   def consumeAll(st: ListT[A]) = {
+    i += 1
     val data = implicitly[Data[A]]
     val x = st.map(_.time)
     val y = st.map(x => data.toValues(x.v))
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
 
-    val f = new Figure("fig", ys.length, 1)
+    val f = new Figure("fig "+i, ys.length, 1)
     ys.zipWithIndex.foreach {
       case (v, i) => {
         val p = f.subplot(i)
@@ -28,8 +31,12 @@ case class Plot[A: Data](rawSource1: Source[A])
 case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
     extends SinkBatch2[A, A] {
 
+  var i = 0
+
   def consumeAll(st: ListT[A], st2: ListT[A]) = {
     val data = implicitly[Data[A]]
+
+    i += 1
 
     val x = st.map(_.time)
     val x2 = st2.map(_.time)
@@ -39,7 +46,7 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
     val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))
 
-    val f = new Figure("fig", ys.length, 1)
+    val f = new Figure("fig "+i, ys.length, 1)
     val titles =
       if (ys.length == 3)
         Seq("x", "y", "z")
