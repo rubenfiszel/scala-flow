@@ -26,9 +26,15 @@ object DroneParticle extends App {
   val controlInput = clock.map(ControlInput(1, cov, dt))
   val vicon = clock.map(Vicon(cov, covQ))
 
+//  accelerometer.foreach(println)
 //  /* batch example
   val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
 
+//  val z2 = accelerometer.zip(batch)
+//  z2.foreach(println, "print")
+
+//  accelerometer.foreach(println, "print")
+//  batch.foreach(println, "print")
 
   Plot2(batch, accelerometer)
 //   */
@@ -69,13 +75,13 @@ object DroneParticle extends App {
 //  awt()
 //  printJson()
 
-  modelHook(traj)
+  modelHook.setModel(traj)
 
   PrimaryNodeHook.drawGraph()
-  PrimaryScheduler.run()
+  PrimarySchedulerHook.run()
 
-  PrimaryScheduler.reset()
-  PrimaryNodeHook.reset()  
-  PrimaryScheduler.run()    
+  //PrimaryScheduler.reset()
+  //PrimaryNodeHook.reset()
+  //PrimaryScheduler.run()
 
 }

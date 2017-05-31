@@ -20,7 +20,7 @@ object Clock {
 
 }
 case class Clock(dt: Timestep, tf: Timeframe)(
-    implicit val scheduler: Scheduler)
+    implicit val schedulerHook: SchedulerHook, val nodeHook: NodeHook)
     extends EmitterStream[Time] {
 
   def name = "Clock " + dt
@@ -52,9 +52,8 @@ trait Buffer[A] extends Op1[A, A] {
 
   bcInit()
 
-  override def reset() = {
-    println("RESET")
-    super.reset()
+  override def setup() = {
+    super.setup()
     bcInit()
   }
 }
@@ -62,9 +61,10 @@ trait Buffer[A] extends Op1[A, A] {
 //Need companion object for call-by-name evaluation of source1
 //Case classes don't support call-by-name
 object Buffer {
-  def apply[A](rawSource11: => Source[A], init1: A, scheduler1: Scheduler) =
+  def apply[A](rawSource11: => Source[A], init1: A, parent: Node) =
     new Buffer[A] {
-      override def scheduler = scheduler1
+      override def scheduler = parent.scheduler
+      override def nodeHook = parent.nodeHook
       val init = init1
       def rawSource1 = rawSource11
     }

@@ -1,15 +1,24 @@
 package dawn.flow
 
-trait Source0 extends Node {
-  lazy val sources: List[Source[_]] = List()
+trait SourceN extends Node {
+  def scheduler: Scheduler
+}
+
+trait Source0 extends SourceN {
+  def schedulerHook: SchedulerHook
+  def scheduler = schedulerHook.scheduler
+  lazy val sources: List[Node] = List()
+  lazy val rawSources: List[Node] = List()  
 }
 
 trait Source1[A] extends Node { self =>
 
-  def scheduler: Scheduler = source1.scheduler
+  def scheduler = source1.scheduler
+  def nodeHook = rawSource1.nodeHook
   def rawSource1: Source[A]
   def source1: Source[A] = rawSource1
-  override def sources: List[Node] = List(source1)
+  override def rawSources: List[Node] = List(rawSource1)
+  override def sources: List[Node] = List(source1)  
   def listen1(x: Timestamped[A])
 
   //Memoization to avoid recreating clone
@@ -31,20 +40,28 @@ trait Source1[A] extends Node { self =>
   def overrideSourceX[C](lSource1: Source[A], lSourceX: Source[C]) = {
     os2
       .getOrElseUpdate((lSource1, lSourceX), {
-        if (lSource1.scheduler != lSourceX.scheduler)
-          Replay(lSourceX, lSource1.scheduler)
+        if (lSource1.scheduler != lSourceX.scheduler) {
+          println(lSource1 + ":::::" + lSource1.scheduler.hashCode)
+          Replay(lSourceX, lSource1)
+        }
         else
           lSourceX
       })
       .asInstanceOf[Source[C]]
   }
 
-  scheduler.executeBeforeStart(source1.addChannel(Channel1(self, scheduler)))
+  override def setup() = {
+    super.setup()
+//    println(source1, self, scheduler)    
+    source1.addChannel(Channel1(self, scheduler))
+  }
 }
 
 trait Source2[A, B] extends Source1[A] { self =>
   def rawSource2: Source[B]
+  override def rawSources = rawSource2 :: super.rawSources  
   override def sources = source2 :: super.sources
+  
   def listen2(x: Timestamped[B])
 
   override def source1: Source[A] =
@@ -53,12 +70,16 @@ trait Source2[A, B] extends Source1[A] { self =>
   def source2: Source[B] =
     overrideSourceX(source1, rawSource2)
 
-  scheduler.executeBeforeStart(source2.addChannel(Channel2(self, scheduler)))
+  override def setup() = {
+    super.setup()
+    source2.addChannel(Channel2(self, scheduler))
+  }
 }
 
 trait Source3[A, B, C] extends Source2[A, B] { self =>
   def rawSource3: Source[C]
-  override def sources = source3 :: super.sources
+  override def rawSources = rawSource3 :: super.rawSources
+  override def sources = source3 :: super.sources    
   def listen3(x: Timestamped[C])
 
   override def source1: Source[A] =
@@ -70,13 +91,17 @@ trait Source3[A, B, C] extends Source2[A, B] { self =>
   def source3: Source[C] =
     overrideSourceX(source1, rawSource3)
 
-  scheduler.executeBeforeStart(source3.addChannel(Channel3(self, scheduler)))
+  override def setup() = {
+    super.setup()
+    source3.addChannel(Channel3(self, scheduler))
+  }
 
 }
 
 trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   def rawSource4: Source[D]
-  override def sources = source4 :: super.sources
+  override def rawSources = rawSource4 :: super.rawSources
+  override def sources = source4 :: super.sources      
   def listen4(x: Timestamped[D])
 
   override def source1: Source[A] =
@@ -91,6 +116,9 @@ trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   def source4: Source[D] =
     overrideSourceX(source1, rawSource4)
 
-  scheduler.executeBeforeStart(source4.addChannel(Channel4(self, scheduler)))
+  override def setup() = {
+    super.setup()
+    source4.addChannel(Channel4(self, scheduler))
+  }
 
 }

@@ -1,9 +1,6 @@
 package dawn.flow
 
-trait Sink { self: Node =>
-  def nodeHook: NodeHook
-  nodeHook.addNode(self)
-}
+trait Sink
 
 trait Sink1[A] extends Node with Source1[A] with Sink {
   def f(x: Timestamped[A]): Unit
@@ -36,10 +33,12 @@ trait SinkBatch2[A, B]
   def schedulerClose = scheduler
 
   def onScheduleClose() = {
+    println(this, accumulated1.length, accumulated2.length)
     consumeAll(accumulated1.reverse, accumulated2.reverse)
   }
 
   def consumeAll(x: ListT[A], y: ListT[B]): Unit
+
 }
 
 /*

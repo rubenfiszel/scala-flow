@@ -93,7 +93,9 @@ trait Trajectory extends Model {
 
 case class TrajectoryClock(dt: Timestep)(
     implicit val modelHook: ModelHook[Trajectory],
-    val scheduler: Scheduler)
+  val schedulerHook: SchedulerHook,
+  val nodeHook: NodeHook  
+)
     extends EmitterStream[Time]
     with RequireModel[Trajectory] {
   def name = "TrajectoryClock " + dt

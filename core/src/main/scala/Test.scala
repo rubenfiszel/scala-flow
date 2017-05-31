@@ -5,7 +5,7 @@ import breeze.interpolation._
 
 case class TestTS[A: Data](rawSource1: Source[A],
                            rawSource2: Source[A],
-                           nb: Int)(implicit val nodeHook: NodeHook)
+                           nb: Int)
     extends SinkBatch2[A, A] {
 
   def toInterpolation(l: Array[Timestamped[A]]) = {

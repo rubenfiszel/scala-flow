@@ -42,7 +42,7 @@ package object flow {
 
   //Less Timestamped boilerplate
 
-  implicit object PrimaryScheduler extends Scheduler
+  implicit object PrimarySchedulerHook extends SchedulerHook
 
   implicit object PrimaryNodeHook extends NodeHook
 

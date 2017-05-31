@@ -9,7 +9,7 @@ import org.jzy3d.plot3d.rendering.canvas.Quality
 
 class Jzy3dVisualisation(
     val rawSource1: Source[TrajectoryPoint],
-    kps: List[Timestamped[Keypoint]])(implicit val nodeHook: NodeHook)
+    kps: List[Timestamped[Keypoint]])
     extends SinkBatch1[TrajectoryPoint] {
 
   def consumeAll(pts: ListT[TrajectoryPoint]) = {

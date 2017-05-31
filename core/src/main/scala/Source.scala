@@ -2,23 +2,17 @@ package dawn.flow
 
 import collection.mutable.Queue
 
-trait Source[A] extends Node { parent =>
+trait Source[A] extends Node {
+  parent =>
 
   var closed = false
 
   private var channels = List[Channel[A]]()
 
-  def scheduler: Scheduler
-
   def name: String
 
   def close() {
     closed = true
-  }
-
-  override def reset() = {
-    super.reset()
-    closed = false
   }
 
   def addChannel(c: Channel[A]) =
@@ -68,7 +62,7 @@ trait Source[A] extends Node { parent =>
     filterT(liftBool(b), name1)
 
   def foreachT(f: Timestamped[A] => Unit, name1: String = ""): Source[A] =
-    new Op1[A, A] {
+    new Op1[A, A] with Sink {
       def rawSource1 = parent
       def listen1(x: Timestamped[A]) = {
         f(x)

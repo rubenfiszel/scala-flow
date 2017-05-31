@@ -3,8 +3,7 @@ package dawn.flow
 import breeze.plot._
 import breeze.linalg._
 
-case class Plot[A: Data](rawSource1: Source[A])(
-    implicit val nodeHook: NodeHook)
+case class Plot[A: Data](rawSource1: Source[A])
     extends SinkBatch1[A] {
 
   def consumeAll(st: ListT[A]) = {
@@ -26,8 +25,7 @@ case class Plot[A: Data](rawSource1: Source[A])(
   }
 }
 
-case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])(
-    implicit val nodeHook: NodeHook)
+case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
     extends SinkBatch2[A, A] {
 
   def consumeAll(st: ListT[A], st2: ListT[A]) = {

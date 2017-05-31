@@ -6,8 +6,9 @@ sealed trait Channel[A] {
 
 case class Channel1[A](receiver: Source1[A], scheduler: Scheduler)
     extends Channel[A] {
-  def push(x: Timestamped[A], dt: Time = 0) =
+  def push(x: Timestamped[A], dt: Time = 0) = {
     scheduler.executeIn(receiver.listen1(x), dt)
+  }
 }
 
 case class Channel2[A](receiver: Source2[_, A], scheduler: Scheduler)

@@ -1,8 +1,13 @@
 package dawn.flow
 
-trait CloseListener { self =>
+trait CloseListener extends Node { self =>
   def closePriority: Int = 0
   def schedulerClose: Scheduler
   def onScheduleClose(): Unit
-  schedulerClose.addCloseListener(self)
+
+  override def setup() = {
+    super.setup()
+    println(self, schedulerClose.hashCode)
+    schedulerClose.addCloseListener(self)
+  }
 }

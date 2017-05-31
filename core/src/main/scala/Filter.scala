@@ -31,7 +31,7 @@ case class LowPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
     (xn - ynm) * alpha + ynm
   }
 
-  lazy val bYnm: Source[A] = Buffer(out, init, scheduler)
+  lazy val bYnm: Source[A] = Buffer(out, init, source1)
   lazy val out = source1.zip(bYnm).map(f _)
 
 }
@@ -49,9 +49,10 @@ case class HighPassFilter[A: Vec](rawSource1: Source[A], init: A, alpha: Real)
   lazy val common =
     source.zip(bXnmYnm).map(f _)
 
-  val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init), scheduler)
+  val bXnmYnm: Source[(A, A)] = Buffer(common, (init, init), source1)
 
   def source = source1
+
   val out = common.map(_._2)
 
 }

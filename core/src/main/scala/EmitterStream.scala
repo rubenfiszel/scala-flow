@@ -12,11 +12,10 @@ trait EmitterStream[A] extends Source[A] with Source0 {
     }
   }
 
-  scheduler.executeBeforeStart({ iterator = stream().toIterator })
-  scheduler.executeAtStart(registerNext())
 
-  override def reset() = {
-    super.reset()
-    iterator = stream.toIterator
+  override def setup() = {
+    super.setup()
+    iterator = stream().toIterator
+    scheduler.executeAtStart(registerNext())
   }
 }

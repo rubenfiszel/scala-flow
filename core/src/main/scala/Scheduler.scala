@@ -32,19 +32,14 @@ trait Scheduler {
   var now =
     0.0
 
-  def reset(): Unit = {
-    now = 0.0
-    pq.dequeueAll
-    childSchedulers.foreach(_.reset())
-  }
 
   def registerEvent(f: => Unit, t: Time): Unit = {
     pq.enqueue(Event(t, () => f))
   }
 
-  def executeBeforeStart(f: => Unit): Unit = {
-    registerEvent(f, Scheduler.BEFORE_START)
-  }
+//  def executeBeforeStart(f: => Unit): Unit = {
+//    registerEvent(f, Scheduler.BEFORE_START)
+//  }
 
   def executeAtStart(f: => Unit): Unit = {
     registerEvent(f, Scheduler.AT_START)
@@ -60,6 +55,7 @@ trait Scheduler {
       now = dq.t
       dq.f()
     }
+    println(closeListeners.toList)
     closeListeners.dequeueAll.foreach(_.onScheduleClose())
   }
 

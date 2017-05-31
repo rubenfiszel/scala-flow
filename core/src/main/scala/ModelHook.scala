@@ -1,20 +1,10 @@
 package dawn.flow
 
-class ModelHook[A] extends (A => Unit) {
+class ModelHook[A] {
 
-  var hook: A => Unit = (x: A) => ()
-
-  def addHook(f: A => Unit) = {
-    val pHook = hook
-    hook = (x: A) => {
-      pHook(x)
-      f(x)
-    }
-  }
-
-  def apply(x: A) =
-    hook(x)
-
+  var model: Option[A] = None
+  def setModel(m: A) =
+    model = Some(m)
 }
 
 object ModelHook {
@@ -31,10 +21,7 @@ object RequireModel {
 
 trait RequireModel[M] {
 
-  var model: Option[M] = None
   def modelHook: ModelHook[M]
+  def model = modelHook.model
 
-  modelHook.addHook((x: M) => {
-    model = Some(x)
-  })
 }

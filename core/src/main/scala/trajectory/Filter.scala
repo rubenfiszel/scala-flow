@@ -30,6 +30,7 @@ case class OrientationComplementaryFilter(
   val gyro = source2
   val thrust = source3.map(_._1)
 
+  val fr = rawSource1.foreach(println)
   def attitudeAcc(atv: ((Acceleration, Thrust), Quat)) = {
     val ((a, th), q) = atv
     TQuaternion.getQuaternion(
@@ -51,7 +52,7 @@ case class OrientationComplementaryFilter(
     gyroQuat.zip(accQuat).map(ga => ga._1 * alpha + ga._2 * (1 - alpha))
 
   lazy val buffer: Source[Quat] =
-    Buffer(out, init, scheduler)
+    Buffer(out, init, source1)
 
 }
 //case class OrientationKalmanFilter(source1: Source[Acceleration, Trajectory], source2: Source[BodyRates, Trajectory], init: Quaternion[Real], alpha: Real, dt: Timeframe) extends Block2T[Quaternion[Real], Trajectory, Acceleration, BodyRates] {
@@ -156,7 +157,7 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   lazy val buffer: Source[Seq[State]] =
     Buffer(fused,
            Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())),
-           scheduler)
+      source1)
 
   lazy val out: Source[Quat] =
     fused
