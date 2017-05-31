@@ -98,7 +98,7 @@ case class TrajectoryClock(dt: Timestep)(
 ) extends Block0[Time]
     with RequireModel[Trajectory] {
   def name = "TrajectoryClock " + dt
-  lazy val out = Clock(dt).takeWhile(_ < model.get.tf)
+  lazy val out = Clock(dt).takeWhile(_ < model.get.tf, "< tf")
 }
 
 @JsonCodec

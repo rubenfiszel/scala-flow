@@ -109,9 +109,9 @@ package object flow {
 
   def getStrOrElse(str: String, default: String) =
     if (str.isEmpty)
-      default
+      default.takeRight(20)
     else
-      str
+      str.takeRight(20)
 
   def debug[A](x: A) = {
     println(x)

@@ -4,7 +4,7 @@ trait FlowApp[M] extends App {
 
   implicit val modelHook = ModelHook[M]
 
-  def drawGraph() =
+  def drawExpandedGraph() =
     PrimaryNodeHook.drawGraph()
 
   def run(m: M) = {

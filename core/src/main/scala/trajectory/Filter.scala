@@ -141,18 +141,18 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
     source2
       .zipLast(buffer)
       .map(x =>
-        x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)))
+        x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)), "Sample")
 
   lazy val particlesAcc =
     source1
       .latency(0.0001)
       .zipLast(buffer)
-      .map(_._2)
+      .map(_._2, "2nd")
 
   lazy val fused =
     particlesGyro
       .fusion(particlesAcc)
-      .map(resample)
+      .map(resample, "Resample")
 
   lazy val buffer: Source[Seq[State]] =
     Buffer(fused,
@@ -161,7 +161,7 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
 
   lazy val out: Source[Quat] =
     fused
-      .map(_.map(x => (x.w, x.q)))
-      .map(averageQuaternions)
+      .map(_.map(x => (x.w, x.q)), "toW-Q")
+      .map(averageQuaternions, "average")
 
 }

@@ -65,7 +65,7 @@ trait Source[A] extends Node { parent =>
     filterT(liftBool(b), name1)
 
   def foreachT(f: Timestamped[A] => Unit, name1: String = ""): Source[A] =
-    new Op1[A, A] with Sink {
+    new Op1[A, A] {
       def rawSource1 = parent
       def listen1(x: Timestamped[A]) = {
         f(x)
@@ -94,7 +94,7 @@ trait Source[A] extends Node { parent =>
         }
       }
 
-      def name = "takeWhile " + getStrOrElse(name1, b.toString)
+      def name = "TakeWhile " + getStrOrElse(name1, b.toString)
       override def requireModel = RequireModel.isRequiring(b)
     }
 

@@ -1,6 +1,6 @@
 package dawn.flow
 
-trait Sink
+sealed trait Sink
 
 trait Sink1[A] extends Node with Source1[A] with Sink {
   def f(x: Timestamped[A]): Unit

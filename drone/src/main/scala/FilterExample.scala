@@ -24,6 +24,6 @@ object FilterExample extends App {
   val plot = Plot(filt)
 
 //  PrimarySchedulerHook.run()
-  PrimaryNodeHook.drawGraph()
+//  PrimaryNodeHook.drawGraph()
 
 }

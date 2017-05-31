@@ -8,7 +8,7 @@ sealed trait Block[A] extends Source[A] { parent =>
     def rawSource1 = out
     def listen1(x: Timestamped[A]) =
       parent.broadcast(x)
-    def name = "Op Block"
+    def name = "Block out"
   }
 }
 

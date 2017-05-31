@@ -52,14 +52,14 @@ object DroneParticle extends FlowApp[Trajectory] {
     TestTS(filter, qs, 1000)
   }
 
-  figure()
-//  testTS()
+//  figure()
+  testTS()
 //  awt()
 //  filter.println
 
   val traj = TrajFactory.generate()
 
   run(traj)
-  drawGraph
+  drawExpandedGraph()
 
 }

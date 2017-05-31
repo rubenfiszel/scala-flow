@@ -1,6 +1,6 @@
 package dawn.flow
 
-trait SourceN extends Node {
+sealed trait SourceN extends Node {
   def scheduler: Scheduler
 }
 
