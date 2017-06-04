@@ -17,11 +17,12 @@ object DroneParticle extends FlowApp[Trajectory] {
 
 
   val clock = TrajectoryClock(dt)
+  val clock2 = TrajectoryClock(dt + 0.001)  
   val points = clock.map(
     LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)),
     "toPoints")
   
-  val accelerometer = clock.map(Accelerometer(cov)) //.latency(dt / 2)
+  val accelerometer = clock2.map(Accelerometer(cov)) //.latency(dt / 2)
   val gyroscope = clock.map(Gyroscope(cov, dt))
   val controlInput = clock.map(ControlInput(1, cov, dt))
   val vicon = clock.map(Vicon(cov, covQ))

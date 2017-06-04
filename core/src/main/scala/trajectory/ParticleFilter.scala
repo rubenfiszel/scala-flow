@@ -5,16 +5,7 @@ import dawn.flow._
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 import spire.algebra.Field
-import breeze.linalg.{
-  norm,
-  normalize,
-  cross,
-  DenseMatrix,
-  DenseVector,
-  eig,
-  eigSym,
-  argmax
-}
+import breeze.linalg.{norm, normalize, cross, DenseMatrix, DenseVector, eig, eigSym, argmax}
 
 //https://ai2-s2-pdfs.s3.amazonaws.com/0322/8afc107f925b7a0ca77d5ade2fda9050f0a3.pdf
 case class ParticleFilter(rawSource1: Source[Acceleration],
@@ -25,37 +16,28 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
                           dt: Timeframe,
                           N: Int,
                           bodyRateStd: DenseMatrix[Real])
-    extends Block4[Acceleration,
-                   BodyRates,
-                   (Thrust, BodyRates),
-                   (Position, Quat),
-                   Quat] {
+    extends Block4[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat] {
 
   def acceleration = rawSource1
-  def bodyRate = rawSource2
+  def bodyRate     = rawSource2
   def controlInput = rawSource3
-  def vicon = rawSource4
+  def vicon        = rawSource4
 
   def name = "ParticleFilter"
   type Weight = Real
-  case class State(w: Weight,
-                   q: Quat,
-                   br: BodyRates,
-                   p: Position,
-                   v: Velocity,
-                   a: Acceleration)
+  case class State(w: Weight, q: Quat, br: BodyRates, p: Position, v: Velocity, a: Acceleration)
 
   def sampleBR(q: Quat, br: BodyRates): Quat = {
-    val withNoise = Rand.gaussian(br, bodyRateStd)
+    val withNoise  = Rand.gaussian(br, bodyRateStd)
     val integrated = withNoise * dt
-    val lq = TQuaternion.localAngleToLocalQuat(q, integrated)
+    val lq         = TQuaternion.localAngleToLocalQuat(q, integrated)
     lq.rotateBy(q)
   }
 
   //http://users.isy.liu.se/rt/schon/Publications/HolSG2006.pdf
   //See systematic resampling
   def resample(sb: Seq[State]) = {
-    val u = Rand.uniform()
+    val u  = Rand.uniform()
     val us = Array.tabulate(N)(i => (i + u) / N)
     val ws = sb.map(_.w).scanLeft(0.0)(_ + _)
     val ns = Array.fill(N)(0)
@@ -94,8 +76,7 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
 
     (sq
       .map(x => (x._1, inverseIfNotClose(x._2)))
-      .foldLeft(Quaternion(0.0, 0.0, 0.0, 0.0))((acc, qw) =>
-        acc + qw._2 / qw._1))
+      .foldLeft(Quaternion(0.0, 0.0, 0.0, 0.0))((acc, qw) => acc + qw._2 / qw._1))
       .normalized
   }
 
@@ -103,28 +84,23 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   lazy val particlesGyro: Source[Seq[State]] =
     bodyRate
       .zipLast(buffer)
-      .map(x =>
-        x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)), "Sample")
+      .map(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)), "Sample")
 
-  /*
   lazy val particlesAcc =
     acceleration
-      .zip(controlInput)
+//      .zip(controlInput)
       .divider(100)
       .latency(0.0001)
       .zipLast(buffer)
       .map(_._2, "2nd")
-   */
-  
+
   lazy val fused =
     particlesGyro
-//      .fusion(particlesAcc)
+      .fusion(particlesAcc)
       .map(resample, "Resample")
 
   lazy val buffer: Source[Seq[State]] =
-    Buffer(fused,
-           Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())),
-           source1)
+    Buffer(fused, Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())), source1)
 
   lazy val out: Source[Quat] =
     fused

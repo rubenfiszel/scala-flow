@@ -9,7 +9,8 @@ trait Node { self =>
   def sources: Seq[Node]
   def requireModel = RequireModel.isRequiring(self)
   override def toString = getClass.getSimpleName
-  def setup(): Unit = ()
+  def setup(): Unit = ()//println(this)
+  def reset(): Unit = ()//println(this)  
 }
 
 object Node {

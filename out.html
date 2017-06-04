@@ -1,0 +1,107 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_CHTML-full" type="text/javascript"></script>
+</head>
+<body>
+<h1 id="pose-estimation-through-rao-blackwellized-particle-filter.">POSE estimation through Rao-Blackwellized Particle filter.</h1>
+<p>The use of the RPBF is justified because our state has some non-linear components (attitude). Indeed, rotations belong to <span class="math inline">\(SO(3)\)</span>. It can be shown that they don't belong to a vector space because the sum of two unit quaternions is not a unit quaternion (not closed under addition)$</p>
+<p>Compared to plain PF, RPBF enable to leverage the linearity of some components of the state by making our model conditionned on some latent variables which are computed thanks to the particle filter.</p>
+<h2 id="notes-on-notation-and-conventions">Notes on notation and conventions</h2>
+<p>The referential by default is the fixed world frame.</p>
+<ul>
+<li><span class="math inline">\(\mathbf{x}\)</span> designates a vector</li>
+<li><span class="math inline">\(x^f\)</span> designates a vector in the fixed frame referrential</li>
+<li><span class="math inline">\(x^b\)</span> designates a vector in the body frame referrential</li>
+<li><span class="math inline">\(x_t\)</span> is the random variable of x at time t</li>
+<li><span class="math inline">\(x_{t1:t2}\)</span> is the product of the random variable of x between t1 included and t2 included</li>
+<li><span class="math inline">\(x^*\)</span> means unnormalized</li>
+<li><span class="math inline">\(x^{(i)}\)</span> designates the random variable x of the arbitrary particle i</li>
+<li><span class="math inline">\(x^n\)</span> designates the product of all n arbitrary particle</li>
+</ul>
+<h2 id="rpbf">RPBF</h2>
+<p>The aim of our filter is POSE. As such, we are interested in <span class="math display">\[\mathbb{E}[(\mathbf{p}_{0:t}, \mathbf{q}_{0:t}) | \mathbf{y}_{1:t}]\]</span></p>
+<p>(There is no observation of the initial position)</p>
+<p>Where <span class="math inline">\(p\)</span> is the position, <span class="math inline">\(q\)</span> is the attitude as a quaternion.</p>
+<p>Optimal filters exist for linear models (Kalman filters). Unfortunately, as stated previously, the attitude component of our model is non-linear. However, given the attitude <span class="math inline">\(q\)</span>, we can make the assumption that our model is conditionally gaussian. This is where RPBF shines: We use particle filtering to estimate our latent variable, the attitude, and we use the optimal kalman filter to estimate the state variable.</p>
+<p>We separate our variables in 3 kinds</p>
+<ul>
+<li>The state <span class="math inline">\(\mathbf{x}\)</span></li>
+<li>The latent variable <span class="math inline">\(\boldsymbol{\theta}\)</span></li>
+<li>The observable variable <span class="math inline">\(\mathbf{y}\)</span> composed of the sensor measurements <span class="math inline">\(\mathbf{z}\)</span> and the control input <span class="math inline">\(\mathbf{u}\)</span></li>
+</ul>
+<p>The state is what we are estimating, the measurements and the control inputs are the data we are estimating them from.</p>
+<p>Particle filters are monte carlo methods which in their general form ... TODO</p>
+<p>The latent variable <span class="math inline">\(\boldsymbol{\theta}\)</span> has for sole component the attitude: <span class="math display">\[\boldsymbol{\theta} = (\mathbf{q})\]</span></p>
+<p><span class="math inline">\(q_t\)</span> is estimated from the product of the attitude of all particles <span class="math inline">\(\mathbf{\theta^{(i)}} = \mathbf{q}^{(i)}_t\)</span> as the &quot;average&quot; quaternion <span class="math inline">\(\mathbf{q}_t = avgQuat(\mathbf{q}^n_t)\)</span>. The average quaternion is not simply the average of its components ... TODO</p>
+<p>We use importance sampling ... TODO</p>
+<p>The weight definition is:</p>
+<p><span class="math display">\[w^{(i)}_t = \frac{p(\boldsymbol{\theta}^{(i)}_{0:t} | \mathbf{y}_{1:t})}{\pi(\boldsymbol{\theta}^{(i)}_{0:t} | \mathbf{y}_{1:t})}\]</span></p>
+<p>From the definition, it is proovable that:</p>
+<p><span class="math display">\[w^{(i)}_t \propto \frac{p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})p(\boldsymbol{\theta}^{(i)}_t | \boldsymbol{\theta}^{(i)}_{t-1})}{\pi(\boldsymbol{\theta}^{(i)}_t | \boldsymbol{\theta}^{(i)}_{1:t-1}, \mathbf{y}_{1:t})} w^{(i)}_{t-1}\]</span></p>
+<p>We choose the dynamic of the model as the importance distribution:</p>
+<p><span class="math display">\[\pi(\boldsymbol{\theta}^{(i)}_t | \boldsymbol{\theta}^{(i)}_{1:t-1}, \mathbf{y}_{1:t}) = p(\boldsymbol{\theta}^{(i)}_t | \boldsymbol{\theta}^{(i)}_{t-1}) \]</span></p>
+<p>Hence,</p>
+<p><span class="math display">\[w^{(i)}_t \propto p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) w^{(i)}_{t-1}\]</span></p>
+<h2 id="state">State</h2>
+<p><span class="math display">\[\mathbf{x_t} = (\mathbf{a_t}, \mathbf{v_t}, \mathbf{p_t})\]</span></p>
+<ul>
+<li><span class="math inline">\(\mathbf{a}\)</span> acceleration</li>
+<li><span class="math inline">\(\mathbf{v}\)</span> velocity</li>
+<li><span class="math inline">\(\mathbf{p}\)</span> position</li>
+</ul>
+<p>Initial position <span class="math inline">\(\mathbf{p_0}\)</span> at (0, 0, 0)</p>
+<h2 id="observations">Observations</h2>
+<p><span class="math display">\[\mathbf{y} = (\mathbf{aA}, \boldsymbol{\omega G}, \mathbf{pV}, \mathbf{qV}, tC, \boldsymbol{\omega C})\]</span></p>
+<h3 id="measurements">Measurements</h3>
+<ul>
+<li><span class="math inline">\(\mathbf{aA}\)</span> acceleration from the accelerometer in the body frame</li>
+<li><span class="math inline">\(\boldsymbol{\omega G}\)</span> angular velocity from the gyroscope in the body frame</li>
+<li><span class="math inline">\(\mathbf{pV}\)</span> position from the vicon</li>
+<li><span class="math inline">\(\mathbf{qV}\)</span> attitude from the vicon</li>
+</ul>
+<h3 id="control-inputs">Control Inputs</h3>
+<ul>
+<li><span class="math inline">\(tC\)</span> thrust (as a scalar) in the direction of the attitude from the control input.</li>
+<li><span class="math inline">\(\boldsymbol{\omega C}\)</span> angular velocity in the body frame from the control input</li>
+</ul>
+<p>Observations from the control input are not strictly speaking measurements but input of the state-transition model</p>
+<h2 id="latent-variable">Latent variable</h2>
+<p><span class="math display">\[\mathbf{q}^{(i)}_{t+1} = \mathbf{q}^{(i)}_t*R2Q((\boldsymbol{\omega C}_t+\boldsymbol{ \omega C^\epsilon}_t)*dt)\]</span></p>
+<p>where <span class="math inline">\(\boldsymbol{\omega C^\epsilon}_t\)</span> represents the error from the control input and is sampled from <span class="math inline">\(\boldsymbol{\omega C^\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\boldsymbol{\omega C}_t })\)</span></p>
+<p>We introduce some helper functions.</p>
+<ul>
+<li><span class="math inline">\(B2F(\mathbf{q}, \mathbf{v})\)</span> is the body to fixed vector rotation. It transforms vector in the body frame to the fixed world frame. It takes as parameter the attitude <span class="math inline">\(q\)</span> and the vector <span class="math inline">\(v\)</span> to be rotated.</li>
+<li><span class="math inline">\(F2B(\mathbf{q}, \mathbf{v})\)</span> is its inverse function (from fixed to body).</li>
+<li><span class="math inline">\(T2A(t)\)</span> is the scaling from thrust to acceleration (by dividing by the weight of the drone: <span class="math inline">\(\mathbf{F} = m\mathbf{a} \Rightarrow \mathbf{a} = \mathbf{F}/m)\)</span> and then multiplying by a unit vector <span class="math inline">\((0, 0, 1)\)</span></li>
+<li><span class="math inline">\(R2Q(\mathbf{r})\)</span> is a rotation in radian to quaternion function dt is the lapse of time between t and the next tick (t+1)</li>
+</ul>
+<h2 id="model-dynamics">Model dynamics</h2>
+<p><span class="math inline">\(\mathbf{Q}_t\)</span> contains our model noise (wind, etc ...)</p>
+<ul>
+<li><span class="math inline">\(\mathbf{a}(t+1) = B2F(\mathbf{q}(t+1), T2A(tC(t+1))) + \mathbf{Q}_{\mathbf{a}_t}\)</span></li>
+<li><span class="math inline">\(\mathbf{v}(t+1) = \mathbf{v}(t) + \mathbf{a}(t)*dt + \mathbf{Q}_{\mathbf{v}_t}\)</span></li>
+<li><span class="math inline">\(\mathbf{p}(t+1) = \mathbf{p}(t) + \mathbf{v}(t)*dt + \mathbf{Q}_{\mathbf{p}_t}\)</span></li>
+</ul>
+<p>Note that <span class="math inline">\(\mathbf{q}(t+1)\)</span> is known because the model is conditionned under <span class="math inline">\(\boldsymbol{\theta}^{(i)}_{t+1}\)</span>.</p>
+<h2 id="measurements-model">Measurements model</h2>
+<ul>
+<li>Vicon:
+<ul>
+<li><span class="math inline">\(\mathbf{p}(t) = \mathbf{pV}(t) + \mathbf{pV}^\epsilon_t\)</span> where <span class="math inline">\(\mathbf{pV}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{pV}_t })\)</span></li>
+<li><span class="math inline">\(\mathbf{q}(t) = \mathbf{qV}(t) + \mathbf{qV}^\epsilon_t\)</span> where <span class="math inline">\(\mathbf{qV}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{qV}_t })\)</span></li>
+</ul></li>
+<li>Gyroscope: <span class="math inline">\(\mathbf{q}(t) = \mathbf{q}(t-1) + (\boldsymbol{\omega G}(t) + \boldsymbol{\omega G}^\epsilon_t)*dt\)</span> where <span class="math inline">\(\boldsymbol{\omega G^\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\boldsymbol{\omega G}_t })\)</span></li>
+<li>Accelerometer:
+<ul>
+<li><span class="math inline">\(\mathbf{a}(t) = B2F(\mathbf{q}(t), aA(t) + \mathbf{aA}^\epsilon_t)\)</span> where <span class="math inline">\(\mathbf{aA}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{aA}_t })\)</span></li>
+<li><span class="math inline">\(\mathbf{g}^f(t) = B2F(\mathbf{q}(t), \mathbf{aA}(t) + \mathbf{aA}^\epsilon_t) - \mathbf{a}(t)\)</span> where <span class="math inline">\(\mathbf{aA}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{aA}_t })\)</span></li>
+</ul></li>
+</ul>
+</body>
+</html>

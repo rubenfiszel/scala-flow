@@ -42,9 +42,8 @@ case class OrientationComplementaryFilter(
 
   lazy val bodyRateInteg = Integrate(gyro, dt)
   lazy val gyroQuatLocal = bodyRateInteg
-    .zip(buffer)
-    .map((qv: (Vec3, Quat)) => TQuaternion.localAngleToLocalQuat(qv._2, qv._1),
-         "BR2Quat")
+    .map(TQuaternion.localAngleToLocalQuat(_),
+      "BR2Quat")
   lazy val gyroQuat = gyroQuatLocal.zip(buffer).map(x => x._1.rotateBy(x._2))
 
   lazy val out =

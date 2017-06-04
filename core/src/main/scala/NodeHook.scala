@@ -11,15 +11,18 @@ trait NodeHook {
     nodes ::= s
 
   def getSources(n: Node) = n match {
-    case x: Buffer[_] => List()
-    case _ => n.sources
+//    case x: Buffer[_] => List()
+    case _ => n.sources.filterNot(_.isInstanceOf[Buffer[_]])
   }
   
   def drawGraph(blocks: Boolean = true, replays: Boolean = false) = {
     val blcks = nodes.filter(_.isInstanceOf[Block[_]]).map(_.asInstanceOf[Block[_]])
     def findInners(b: Block[_]) = {      
       def rec(sn: Node, end: List[Node]): List[Node] =
-        sn :: getSources(sn).filterNot(end.contains(_)).flatMap(x => rec(x, end)).toList
+        if (sn.isInstanceOf[Buffer[_]])
+          List(sn)
+        else 
+          sn :: sn.sources.filterNot(end.contains(_)).flatMap(x => rec(x, end)).toList
       b.trans :: rec(b.out, b.sources.toList)
     }
 
@@ -46,8 +49,8 @@ trait NodeHook {
       inners.zip(blcks).foreach { case (inn, blk) => {
         val innS = blk.sources.toList ::: inn
         val n = innS.filter(filterReplays)
-        val graph  = Graph(n.toSet, n.flatMap(x => x.sources.map(skipReplays).filter(innS.contains(_)).filter(filterReplays).map(y => (y, x))))
-        val layout   = GraphLayout.renderGraph(graph, layoutPrefs = LayoutPrefsImpl().copy(vertical = false))
+        val graph  = Graph(n.toSet, n.flatMap(x => x.sources.map(skipReplays).filter(innS.contains(_)).filter(filterReplays).map(y => (y, x))).distinct)
+        val layout   = GraphLayout.renderGraph(graph)
         println(blk)
         println(layout)        
       }}
@@ -64,8 +67,9 @@ trait NodeHook {
 
   def setup() = {
     expand()    
-    val graph  = Graph(nodes.toSet, nodes.flatMap(x => getSources(x).map(y => (x, y))))
-    val sorted = GraphUtils.topologicalSort(graph).get.reverse
+    val graph  = Graph(nodes.toSet, nodes.flatMap(x => getSources(x).map(y => (y, x))).distinct)
+    val sorted = GraphUtils.topologicalSort(graph).get
+    sorted.foreach(_.reset())    
     sorted.foreach(_.setup())
     println("Done setup")
   }

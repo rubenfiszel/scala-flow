@@ -27,10 +27,10 @@ trait Batch[A, B]
   //Not worth it to change all code since it once the first
   //scheduler is closed there is no effect possible
   override def setup() = {
+    super.setup()    
     schedulerL = new Scheduler {}
     source1.scheduler.childSchedulers ::= scheduler
     source1.addChannel(Channel1(this, source1.scheduler))
-    super.setup()
   }
 
 }

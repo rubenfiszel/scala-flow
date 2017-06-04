@@ -14,7 +14,9 @@ trait Source[A] extends Node { parent =>
     closed = true
   }
 
-  override def setup() = {
+  override def reset() = {
+    super.reset()
+    channels = List()
     closed = false
   }
 
