@@ -6,10 +6,7 @@ date: \today
 
 # Introduction
 
-The use of the RPBF is justified because our state has some non-linear components (attitude).
-Indeed, rotations belong to $SO(3)$. It can be shown intuitively that they do not belong to a vector space because the sum of two unit quaternions is not a unit quaternion (not closed under addition).
-
-Compared to a plain PF, RPBF leverage the linearity of some components of the state by making our model linear conditionned on a latent variables.
+We will introduce here several filter for POSE estimation for highly dynamic objects and in particular drones. The order is from the most conceptually simple, to the most complex. The Rao-Blackwellized Particle filter can be viewed as a superset of many other filters, where those filters are just instances of a particle filter with only one particle.
 
 ## Notes on notation and conventions
 
@@ -20,26 +17,101 @@ The referential by default is the fixed world frame.
 - $x_{t1:t2}$ is the product of the random variable of x between t1 included and t2 included
 - $x^{(i)}$ designates the random variable x of the arbitrary particle i
 
+## POSE 
 
-# RPBF
+POSE is the task of determining the position and orientation of an object through time. It is a subroutine of SLAM (Software Localization And Mapping). We can formelize the problem as:
 
-The aim of our filter is POSE. As such, we are interested in $$\mathbb{E}[(\mathbf{p}_{0:t}, \mathbf{q}_{0:t}) | \mathbf{y}_{1:t}]$$
-
-(There is no observation of the initial position)
-
-Where $p$ is the position, $q$ is the attitude as a quaternion.
-
-Optimal filters exist for linear models (Kalman filters). Unfortunately, as stated previously, the attitude component of our model is non-linear. However, given the attitude $q$, we can make the assumption that our model is conditionally gaussian. This is where RPBF shines: We use particle filtering to estimate our latent variable, the attitude, and we use the optimal kalman filter to estimate the state variable.
-
-We separate our variables in 3 kinds
+At each timestep, find the best expectation of a function of the hidden variable state (position and orientation), from their initial distribution and observable random variables (such as sensor measurements).
 
 - The state $\mathbf{x}$
-- The latent variable $\boldsymbol{\theta}$
+- The function $g(\mathbf{x})$ such that $g(\mathbf{x}_t) = (\mathbf{p}_t, \mathbf{q}_t)$ where $\mathbf{p}$ is the position and $\mathbf{q}$ is the attitude as a quaternion.
 - The observable variable $\mathbf{y}$ composed of the sensor measurements $\mathbf{z}$ and the control input $\mathbf{u}$
 
-The state is what we are estimating, the measurements and the control inputs are the data we are estimating them from.
+The algorithm inputs are:
+
+- The distribution of initial position $\mathbf{p}_0$ and orientation $\mathbf{q}_0$
+- control inputs $\mathbf{u}_t$ (the command sent to the flight controller)
+- sensor measurements $\mathbf{z}_t$ coming from different sensors with different sampling rate
+- information about the sensors (sensor measurements biases and matrix of covariance) 
+
+## Sensors
+
+This work was in collaboration with the ASL Stanford lab for indoor POSE of drones. The sensors at disposition are:
+
+- **Accelerometer**: the total acceleration in the body frame referrential the drone is submitted to at a **high** sampling rate.
+- **Gyroscope**: the angular velocity of the drone at the last timestep  at a **high** sampling rate.
+- **Vicon** or **Tango**: an estimate of the current position and attitute at a **low** sampling rate.
+
+The control inputs at disposition are:
+
+- **Thrust**: The current thrust in the direction of the orientation of the drone the motors should create.
+- **Angular velocity**: The angular velocity the motors should create.
+
+This work adapts itself easily to other sensors but we will focus here only on those 3.
+
+## Quaternions
+
+Quaternions are extensions of complex numbers but with 3 imaginary parts. They can be used to represent orientation, also referred to as attitude. Quaternions algebra make rotation composition simple and quaternions avoid the issue of gimbal lock. In all filters presented, they will be used to represent the attitude.
+
+## Filtering and smoothing
+
+**Smoothing** is the statistical task of finding the expectation of the state variable from multiple observation variable ahead. 
+
+$$\mathbb{E}[g(\mathbf{x}_{0:t}) | \mathbf{y}_{1:t+k}]$$
+
+Which expand to,
+
+$$\mathbb{E}[(\mathbf{p}_{0:t}, \mathbf{q}_{0:t}) | (\mathbf{z}_{1:t+k}, \mathbf{u}_{1:t+k})]$$
+
+$k$ is a contant and the first observation is $y_1$
+
+**Filtering** is a kind of smoothing where you only have at disposal the current observation variable ($k=0$)
+
+# Complementary Filter
+
+
+# Kalman Filter
+
+Kalman filters are optimal linear filters.
+
+**TODO**
+
+## Linearity
+
+Kalman filters are non optimal for our problem because our state has some non-linear components (attitude).
+
+Indeed, rotations belong to $SO(3)$. It can be shown intuitively that they do not belong to a vector space because the sum of two unit quaternions is not a unit quaternion (not closed under addition).
+**TODO**
+
+## Extended Kalman Filters
+
+EKF are linearized Kalman filters of the first order.
+
+**TODO**
+
+## Unscented Kalman Filters
+
+**TODO**
+
+# Particle Filter
+
+Particle filters are computionally expensive and that is why their usage is not very popular currently for low-powered embedded systems.
 
 Particle filters are monte carlo methods which in their general form ... **TODO**
+
+**TODO**
+
+## Resampling
+
+When the number of effective particles is too low ($N/10$), we apply systematic resampling
+
+# Rao-Blackwellized Particle Filter 
+
+## Introduction
+
+Compared to a plain PF, RPBF leverage the linearity of some components of the state by assuming our model gaussian conditionned on a latent variable: Given the attitude $q_t$, our model is linear. This is where RPBF shines: We use particle filtering to estimate our latent variable, the attitude, and we use the optimal kalman filter to estimate the state variable.
+
+We introduce the latent variable $\boldsymbol{\theta}$
 
 The latent variable $\boldsymbol{\theta}$ has for sole component the attitude: $$\boldsymbol{\theta} = (\mathbf{q})$$
 
@@ -65,7 +137,7 @@ $$w^{(i)}_t \propto p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{
 
 We then sum all $w^{(i)}_t$ to find the normalization constant and retrieve the actual $w^{(i)}_t$
 
-# State 
+## State 
 
 $$\mathbf{x}_t = (\mathbf{a}_t, \mathbf{v}_t, \mathbf{p}_t)$$
 
@@ -75,7 +147,7 @@ $$\mathbf{x}_t = (\mathbf{a}_t, \mathbf{v}_t, \mathbf{p}_t)$$
 
 Initial position $\mathbf{p_0}$ at (0, 0, 0)
 
-# Observations
+## Observations
 
 $$\mathbf{y}_t = (\mathbf{aA}_t, \boldsymbol{\omega G}_t, \mathbf{pV}_t, \mathbf{qV}_t, tC_t, \boldsymbol{\omega C}_t)$$
 
@@ -93,11 +165,7 @@ $$\mathbf{y}_t = (\mathbf{aA}_t, \boldsymbol{\omega G}_t, \mathbf{pV}_t, \mathbf
 
 Observations from the control input are not strictly speaking measurements but input of the state-transition model
 
-# Latent variable
-
-$$\mathbf{q}^{(i)}_{t+1} = \mathbf{q}^{(i)}_t*R2Q((\boldsymbol{\omega C}_t+\boldsymbol{ \omega C^\epsilon}_t)*dt)$$
-
-where $\boldsymbol{\omega C^\epsilon}_t$ represents the error from the control input and is sampled from $\boldsymbol{\omega C^\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\boldsymbol{\omega C}_t })$
+## Helper functions 
 
 We introduce some helper functions. 
 
@@ -107,8 +175,15 @@ We introduce some helper functions.
 
 dt is the lapse of time between t and the next tick (t+1)
 
+## Latent variable
 
-# Model dynamics
+$$\mathbf{q}^{(i)}_{t+1} = \mathbf{q}^{(i)}_t*R2Q((\boldsymbol{\omega C}_t+\boldsymbol{ \omega C^\epsilon}_t)*dt)$$
+
+where $\boldsymbol{\omega C^\epsilon}_t$ represents the error from the control input and is sampled from $\boldsymbol{\omega C^\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\boldsymbol{\omega C}_t })$
+
+Initial attitude $\mathbf{q_0}$ is sampled such that the drone pitch and roll are none (parralel to the ground) but the yaw is unknown and uniformly distributed.
+
+## Model dynamics
 
 $\mathbf{w}_t$ is our process noise (wind, etc ...)
 
@@ -122,14 +197,14 @@ The model dynamic define the state-transition matrix $\mathbf{F}_t(\boldsymbol{\
 
 **TODO**: write the 3 matrices explicitely
 
-## kalman prediction
+## Kalman prediction
 
 $$ \mathbf{m}^{-(i)}_t = \mathbf{F}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{m}^{(i)}_{t-1} + \mathbf{B}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{u}_t $$
 $$ \mathbf{P}^{-(i)}_t = \mathbf{F}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{P}^{-(i)}_{t-1}  (\mathbf{F}_t(\boldsymbol{\theta}^{(i)}_t))^T + \mathbf{w}_t(\boldsymbol{\theta}^{(i)}_t)$$
 
-# Measurements model
+## Measurements model
 
-The measurement model defines how to compute $p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) w^{(i)}_{t-1}$
+The measurement model defines how to compute $p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})$
 
 - Vicon: 
     1. $\mathbf{p}(t) = \mathbf{pV}(t) + \mathbf{pV}^\epsilon_t$ where $\mathbf{pV}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{pV}_t })$
@@ -148,7 +223,7 @@ $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mat
 
 $\mathbf{z}^{(1, 2, 4)}$ means component 1, 2 and 4 of $\mathbf{z}$.
 
-## Asynchronous measurements
+### Asynchronous measurements
 
 Our measurements have different sampling rate so instead of doing full kalman update, we only apply a partial kalman update corresponding to the current type of measurement $\mathbf{z}_t$
 
@@ -165,18 +240,28 @@ $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mat
 
 where $\mathbf{Pa}^{-(i)}_t$ is the variance of $\mathbf{a}$ in $\mathbf{P}^{-(i)}_t$ and $\mathbf{g}$ is the gravity vector.
 
-# Kalman update
+## Kalman update
 
 **TODO**: plain kalman update matrix operations.
 
-# Resampling
+## Algorithm summary
 
-When the number of effective particles is too low ($N/10$), we apply systematic resampling
+1. Initiate $N$ particles with $p_0$, $q_0 ~ sim p(q_0)$, $P_0$ and $w = 1/N$ 
+2. While new sensor measurements $(\mathbf{z}_t, \mathbf{u}_t)$ 
+   - foreach $N$ particles $(i)$:
+       1. sample new latent variable $\boldsymbol{\theta_t}$ from $\mathbf{u}_t$
+       2. Depending on the type of measurement:
+           - **Gyroscope**: 
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(3)}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/dt, \mathbf{R}_{\boldsymbol{\omega G}_t})$$
+     	   - **Vicon**: 
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(1, 2, 4)}_t; \mathbf{H}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{m}^{(i)}_t, \mathbf{H}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{P}^{-(i)}_t  (\mathbf{H}_t(\boldsymbol{\theta}^{(i)}_t))^T + \mathbf{v}_t(\boldsymbol{\theta}^{(i)}_t))$$
+		   and update particle state with a partial/full kalman prediction and update
+     	   - **Accelerometer**:
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(1, 2, 4)}_t; \mathbf{H}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{m}^{(i)}_t, \mathbf{H}_t(\boldsymbol{\theta}^{(i)}_t) \mathbf{P}^{-(i)}_t  (\mathbf{H}_t(\boldsymbol{\theta}^{(i)}_t))^T + \mathbf{v}_t(\boldsymbol{\theta}^{(i)}_t))$$
+		   from the acceleration information and update particle state with a partial/full kalman prediction and update, and then a new $$p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(5)}_t; F2B(\mathbf{q}^{(i)}_t, \mathbf{g}) + \mathbf{a}^{(i)}_t, \mathbf{R}_{\mathbf{aA}_t} + \mathbf{Pa}^{-(i)}_t) p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})$$
+		   from the orientation information
+      3. Update $w^{(i)}_t$ as $w^{(i)}_t = p(\mathbf{y}_t | \boldsymbol{\theta}{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) w^{(i)}_{t-1}$	  
+  - Compute $\mathbf{p}_t$ and $\mathbf{q}_t$ as the expectation from the distribution approximated by the N particles.
+  - Resample if the number of effective particle is too low
 
-# Algorithm summary
 
-**TODO**
-
-# POSE
-
-At each timestep, we get $p(t)$ as the average $p$ from the state of all particles and $q(t)$ as the "average" quaternion (as defined previously) from the latent variable of all particles.

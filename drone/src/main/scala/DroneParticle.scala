@@ -10,22 +10,28 @@ object DroneParticle extends FlowApp[Trajectory] {
 
   val dt = 0.005
 
+  val covScale = 1.0
   //filter parameter
-  val cov = DenseMatrix.eye[Real](3) * 0.1
-  val covQ = DenseMatrix.eye[Real](4) * 1.0
+  val covAcc    = DenseMatrix.eye[Real](3) * (0.1 * covScale)
+  val covGyro   = DenseMatrix.eye[Real](3) * (0.1 * covScale)
+  val covViconP = DenseMatrix.eye[Real](3) * (0.1 * covScale)
+  val covViconQ = DenseMatrix.eye[Real](4) * (1.0 * covScale)
+
+  val stdCIThrust = 0.1 * covScale
+  val covCIOmega  = DenseMatrix.eye[Real](3) * (0.1 * covScale)
+
+  val numberParticles = 10
+
   val initQ = Quaternion(1.0, 0, 0, 0)
 
+  val clock  = TrajectoryClock(dt)
+  val clock2 = TrajectoryClock(dt + 0.001)
+  val points = clock.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
 
-  val clock = TrajectoryClock(dt)
-  val clock2 = TrajectoryClock(dt + 0.001)  
-  val points = clock.map(
-    LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)),
-    "toPoints")
-  
-  val accelerometer = clock2.map(Accelerometer(cov)) //.latency(dt / 2)
-  val gyroscope = clock.map(Gyroscope(cov, dt))
-  val controlInput = clock.map(ControlInput(1, cov, dt))
-  val vicon = clock.map(Vicon(cov, covQ))
+  val accelerometer = clock2.map(Accelerometer(covAcc)) //.latency(dt / 2)
+  val gyroscope     = clock.map(Gyroscope(covGyro, dt))
+  val controlInput  = clock.map(ControlInput(stdCIThrust, covCIOmega, dt))
+  val vicon         = clock.map(Vicon(covViconP, covViconQ))
 
   /* batch example
   val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
@@ -39,8 +45,13 @@ object DroneParticle extends FlowApp[Trajectory] {
                    vicon,
                    initQ,
                    dt,
-                   10,
-                   cov)
+                   numberParticles,
+                   covAcc,
+                   covGyro,
+                   covViconP,
+                   covViconQ,
+                   stdCIThrust,
+                   covCIOmega)
 
   val qs =
     points.map(_.q, "toQ")

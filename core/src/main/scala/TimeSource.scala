@@ -25,4 +25,9 @@ class TimeSource(source: Source[Time]) {
       def name = "Latency " + dt
     }
 
+  def deltaTime(): Source[Time] =
+    source
+      .zip(source.drop(1))
+      .map(x => x._2 - x._1)
+
 }

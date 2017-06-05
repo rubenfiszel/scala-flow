@@ -297,4 +297,19 @@ trait Source[A] extends Node { parent =>
   def toTime =
     mapT(x => x.map(y => x.time))
 
+  def drop(n: Int) = {
+    new Op1[A, A] {
+      def rawSource1 = parent
+      var i = n
+      def listen1(x: Timestamped[A]) = {
+        if (i == 0)
+          broadcast(x)
+        else
+          i -= 1
+      }
+      def name = "Drop " + n
+    }
+
+  }
+
 }

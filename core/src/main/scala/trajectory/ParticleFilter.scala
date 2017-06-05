@@ -13,9 +13,14 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
                           rawSource3: Source[(Thrust, BodyRates)],
                           rawSource4: Source[(Position, Quat)],
                           init: Quat,
-                          dt: Timeframe,
-                          N: Int,
-                          bodyRateStd: DenseMatrix[Real])
+  dt: Timeframe,
+                   N: Int,
+                   covAcc: MatrixR,
+                   covGyro: MatrixR,
+                   covViconP: MatrixR,
+                   covViconQ: MatrixR,
+                   stdCIThrust: Real,
+                   covCIOmega: MatrixR)
     extends Block4[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat] {
 
   def acceleration = rawSource1
@@ -24,19 +29,23 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   def vicon        = rawSource4
 
   def name = "ParticleFilter"
-  type Weight = Real
-  case class State(w: Weight, q: Quat, br: BodyRates, p: Position, v: Velocity, a: Acceleration)
+
+  type Weight   = Real
+  type Attitude = Quat
+
+  case class State(p: Position, v: Velocity, a: Acceleration)
+  case class Particle(w: Weight, q: Attitude, s: State)
 
   def sampleBR(q: Quat, br: BodyRates): Quat = {
-    val withNoise  = Rand.gaussian(br, bodyRateStd)
+    val withNoise  = Rand.gaussian(br, covCIOmega)
     val integrated = withNoise * dt
-    val lq         = TQuaternion.localAngleToLocalQuat(q, integrated)
+    val lq         = TQuaternion.localAngleToLocalQuat(integrated)
     lq.rotateBy(q)
   }
 
   //http://users.isy.liu.se/rt/schon/Publications/HolSG2006.pdf
   //See systematic resampling
-  def resample(sb: Seq[State]) = {
+  def resample(sb: Seq[Particle]) = {
     val u  = Rand.uniform()
     val us = Array.tabulate(N)(i => (i + u) / N)
     val ws = sb.map(_.w).scanLeft(0.0)(_ + _)
@@ -81,10 +90,10 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   }
 
   //TODO HANDLE DIFFERENT INITIAL POSSIBLE POSITIONS + resample + accelerometer for attitude + vicon + integrate acceleration
-  lazy val particlesGyro: Source[Seq[State]] =
+  lazy val particlesGyro: Source[Seq[Particle]] =
     bodyRate
       .zipLast(buffer)
-      .map(x => x._2.map(b => State(b.w, sampleBR(b.q, x._1), b.br, b.p, b.v, b.a)), "Sample")
+      .map(x => x._2.map(b => b.copy(q = sampleBR(b.q, x._1))), "Sample")
 
   lazy val particlesAcc =
     acceleration
@@ -99,8 +108,8 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
       .fusion(particlesAcc)
       .map(resample, "Resample")
 
-  lazy val buffer: Source[Seq[State]] =
-    Buffer(fused, Seq.fill(N)(State(1.0 / N, init, Vec3(), Vec3(), Vec3(), Vec3())), source1)
+  lazy val buffer: Source[Seq[Particle]] =
+    Buffer(fused, Seq.fill(N)(Particle(1.0 / N, init, State(Vec3(), Vec3(), Vec3()))), source1)
 
   lazy val out: Source[Quat] =
     fused

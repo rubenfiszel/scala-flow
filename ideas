@@ -18,6 +18,7 @@
 - replay for fusion between scheduler
 (If different scheduler in Source, create replay node)
 
+- Check streamIt as main alternative
 - scalameta to name anon function
 - images in REPL or javascript images
 
