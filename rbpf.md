@@ -227,15 +227,14 @@ $$ \mathbf{\Sigma}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathb
 The measurement model defines how to compute $p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-_K1})$
 
 - Accelerometer: 
-    1. $\mathbf{a}(t) = \mathbf{R}_{b2f}\{\mathbf{q}(t)\}(\mathbf{a_A}(t) + \mathbf{a_A}^\epsilon_t)$ where $\mathbf{a_A}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{a_A}_t })$
-    2. $\mathbf{g}^f(t) = \mathbf{R}_{b2f}\{\mathbf{q}(t)\}(\mathbf{a_A}(t) + \mathbf{a_A}^\epsilon_t) - \mathbf{a}(t)$
+    1. $\mathbf{a_A}(t) = \mathbf{R}_{f2b}\{\mathbf{q}(t)\}\mathbf{a}(t) + \mathbf{a_A}^\epsilon_t$ where $\mathbf{a_A}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{a_A}_t })$
 - Gyroscope: 
-    3. $\mathbf{q}(t) = \mathbf{q}(t-1) + \Delta t(\mathbf{\boldsymbol{\omega}_G}(t) + \mathbf{\boldsymbol{\omega}_G}^\epsilon_t)$ where $\mathbf{\boldsymbol{\omega}_G^\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t })$
+    2. $\mathbf{\boldsymbol{\omega}_G}(t) = (\mathbf{q}^{(i)}(t) - \mathbf{q}^{(i)}_{t-1})/\Delta t + \mathbf{\boldsymbol{\omega}_G}^\epsilon(t)$
 - Vicon: 
-    4. $\mathbf{p}(t) = \mathbf{p_V}(t) + \mathbf{p_V}^\epsilon_t$ where $\mathbf{p_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{p_V}_t })$
-    5. $\mathbf{q}(t) = \mathbf{q_V}(t) + \mathbf{q_V}^\epsilon_t$ where $\mathbf{q_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{q_V}_t })$	
+    3. $\mathbf{p_V}(t) = \mathbf{p}(t)^{(i)} + \mathbf{p_V}^\epsilon_t$ where $\mathbf{p_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{p_V}_t })$
+    4. $\mathbf{q_V}(t) = \mathbf{q}(t)^{(i)} + \mathbf{q_V}^\epsilon_t$ where $\mathbf{q_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{q_V}_t })$	
 
-(1, 4) define the observation matrix $\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}$, the observation noise $\mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\}$ and its covariance matrix $\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}$ for the Kalman filter.
+(1, 3) define the observation matrix $\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}$, the observation noise $\mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\}$ and its covariance matrix $\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}$ for the Kalman filter.
 
 $$(\mathbf{a_A}_t, \mathbf{p_V}_t)^T  = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} (\mathbf{a}_t, \mathbf{p}_t)^T + \mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\}$$	
 
@@ -248,7 +247,7 @@ $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{6 \times 6} =
 
 $$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{6 \times 6} = 
 \left( \begin{array}{ccc}
-\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t } & \mathbf{0}_{3 \times 3} \\
+\mathbf{R}_{\mathbf{a_A}_t } & \mathbf{0}_{3 \times 3} \\
 \mathbf{0}_{3 \times 3} & \mathbf{R}_{\mathbf{p_V}_t }
 \end{array} \right)$$
 
@@ -282,19 +281,12 @@ $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mat
 
 ## Other sources or reweighting
 
-(2, 3 and 5) defines three other weight updates.
-
-
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{a_A}_t; \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_t\}\mathbf{g} + \mathbf{a}^{(i)}_t,~ \mathbf{R}_{\mathbf{a_A}_t} + \mathbf{Pa}^{-(i)}_t)$$
+(2 and 4) defines two other weight updates.
 
 $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{\boldsymbol{\omega}_G}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t,~ \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
 
 $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{q_V}_t; \mathbf{q}^{(i)}_t,~ \mathbf{R}_{\mathbf{q_V}_t })$$
 
-
-**TODO**: Check that matrix of covariance is correct for 5. Found covariance as covariance of sum of normal but seems too simple.
-
-where $\mathbf{Pa}^{-(i)}_t$ is the variance of $\mathbf{a}$ in $\mathbf{\Sigma}^{-(i)}_t$ and $\mathbf{g}$ is the gravity vector.
 
 ## Algorithm summary
 
@@ -305,16 +297,15 @@ where $\mathbf{Pa}^{-(i)}_t$ is the variance of $\mathbf{a}$ in $\mathbf{\Sigma}
        2. Depending on the type of measurement:
      	   - **Accelerometer**:
 		   Partial kalman update with: 
-		   $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\} \mathbf{0}_{3 \times 3})$$
+		   $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\} ~~~~ \mathbf{0}_{3 \times 3})$$
 		   $$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 3} = \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t } $$
 		   $$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}(\mathbf{a_A}_t - \mathbf{\hat{z}})$$
-		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^- = \mathcal{N}(\mathbf{a_A}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
-		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{a_A}_t; \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_t\}\mathbf{g} + \mathbf{a}^{(i)}_t, \mathbf{R}_{\mathbf{a_A}_t} + \mathbf{Pa}^{-(i)}_t) p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^-$$
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{a_A}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
            - **Gyroscope**: 
 		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{\boldsymbol{\omega}_G}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t,~ \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
      	   - **Vicon**: 
 		   Partial kalman update with: 
-		   $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{0}_{3 \times 3} \mathbf{I}_{3 \times 3} )$$
+		   $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{0}_{3 \times 3} ~~~~ \mathbf{I}_{3 \times 3} )$$
 		   $$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 3} =  \mathbf{R}_{\mathbf{p_V}_t }$$
 		   $$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}(\mathbf{p_V}_t - \mathbf{\hat{z}})$$
 		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^- = \mathcal{N}(\mathbf{p_V}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
