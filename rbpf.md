@@ -219,89 +219,108 @@ $$\mathbf{Q}_t\{\boldsymbol{\theta}^{(i)}_t\}_{9 \times 9} =
 
 ## Kalman prediction
 
-$$ \mathbf{m}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{m}^{(i)}_{t-1} + \mathbf{B}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{u}_t $$
-$$ \mathbf{P}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{P}^{-(i)}_{t-1}  (\mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{w}_t\{\boldsymbol{\theta}^{(i)}_t\}$$
+$$ \mathbf{x}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{B}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{u}_t $$
+$$ \mathbf{\Sigma}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{\Sigma}^{-(i)}_{t-1}  (\mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{w}_t\{\boldsymbol{\theta}^{(i)}_t\}$$
 
 ## Measurements model
 
 The measurement model defines how to compute $p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-_K1})$
 
-- Vicon: 
-    1. $\mathbf{p}(t) = \mathbf{p_V}(t) + \mathbf{p_V}^\epsilon_t$ where $\mathbf{p_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{p_V}_t })$
-    2. $\mathbf{q}(t) = \mathbf{q_V}(t) + \mathbf{q_V}^\epsilon_t$ where $\mathbf{q_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{q_V}_t })$
+- Accelerometer: 
+    1. $\mathbf{a}(t) = \mathbf{R}_{b2f}\{\mathbf{q}(t)\}(\mathbf{a_A}(t) + \mathbf{a_A}^\epsilon_t)$ where $\mathbf{a_A}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{a_A}_t })$
+    2. $\mathbf{g}^f(t) = \mathbf{R}_{b2f}\{\mathbf{q}(t)\}(\mathbf{a_A}(t) + \mathbf{a_A}^\epsilon_t) - \mathbf{a}(t)$
 - Gyroscope: 
     3. $\mathbf{q}(t) = \mathbf{q}(t-1) + \Delta t(\mathbf{\boldsymbol{\omega}_G}(t) + \mathbf{\boldsymbol{\omega}_G}^\epsilon_t)$ where $\mathbf{\boldsymbol{\omega}_G^\epsilon}_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t })$
-- Accelerometer: 
-    4. $\mathbf{a}(t) = \mathbf{R}_{b2f}\{\mathbf{q}(t)\}(\mathbf{a_A}(t) + \mathbf{a_A}^\epsilon_t)$ where $\mathbf{a_A}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{a_A}_t })$
-    5. $\mathbf{g}^f(t) = \mathbf{R}_{b2f}\{\mathbf{q}(t)\}(\mathbf{a_A}(t) + \mathbf{a_A}^\epsilon_t) - \mathbf{a}(t)$
+- Vicon: 
+    4. $\mathbf{p}(t) = \mathbf{p_V}(t) + \mathbf{p_V}^\epsilon_t$ where $\mathbf{p_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{p_V}_t })$
+    5. $\mathbf{q}(t) = \mathbf{q_V}(t) + \mathbf{q_V}^\epsilon_t$ where $\mathbf{q_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{q_V}_t })$	
 
 (1, 4) define the observation matrix $\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}$, the observation noise $\mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\}$ and its covariance matrix $\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}$ for the Kalman filter.
 
-$$(\mathbf{a}_t, \mathbf{p}_t)^T = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} (\mathbf{a_A}_t, \mathbf{p_V}_t)^T + \mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\}$$	
+$$(\mathbf{a_A}_t, \mathbf{p_V}_t)^T  = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} (\mathbf{a}_t, \mathbf{p}_t)^T + \mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\}$$	
 
 $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{6 \times 6} = 
 \left( \begin{array}{ccc}
-\mathbf{R}_{b2f}\{\mathbf{q}^{(i)}_{t}\} & \mathbf{0}_{3 \times 3} \\
+\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\} & \mathbf{0}_{3 \times 3} \\
 \mathbf{0}_{3 \times 3} & \mathbf{I}_{3 \times 3} 
 \end{array} \right)$$
 
 
 $$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{6 \times 6} = 
 \left( \begin{array}{ccc}
-\mathbf{R}_{b2f}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t } & \mathbf{0}_{3 \times 3} \\
+\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t } & \mathbf{0}_{3 \times 3} \\
 \mathbf{0}_{3 \times 3} & \mathbf{R}_{\mathbf{p_V}_t }
 \end{array} \right)$$
 
-### Kalman reweighting
+### Kalman update
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(1, 4)}_t; \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{m}^{(i)}_t, \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{P}^{-(i)}_t  (\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\})$$
-
-$\mathbf{z}^{(1, 4)}$ means component 1, and 4 of $\mathbf{z}$.
+$$\mathbf{S} = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{\Sigma}^{-(i)}_t  (\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\})$$
+$$\mathbf{\hat{z}} = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}  \mathbf{x}^{-(i)}_t$$
+$$\mathbf{K} = \mathbf{\Sigma}^{-(i)}_t \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}^T \mathbf{S}^{-1}$$
+$$\mathbf{\Sigma}^{(i)}_t = \mathbf{\Sigma}^{(i)}_t + \mathbf{K} \mathbf{S} \mathbf{K}^T$$
+$$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}((\mathbf{a_A}_t, \mathbf{p_V}_t)^T - \mathbf{\hat{z}})$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}((\mathbf{a_A}_t, \mathbf{p_V}_t)^T; \mathbf{\hat{z}}_t, \mathbf{S})$$
 
 ### Asynchronous measurements
 
 Our measurements from the Vicon and the accelerometer have different sampling rate so instead of doing full kalman update, we only apply a partial kalman update corresponding to the current type of measurement $\mathbf{z}_t$
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(1)}_t; \mathbf{R}_{b2f}\{\mathbf{q}^{(i)}_{t}\} \mathbf{m}^{(i)}_t, \mathbf{R}_{b2f}\{\mathbf{q}^{(i)}_{t}\} \mathbf{P}^{-(i)}_t  (\mathbf{R}_{b2f}\{\mathbf{q}^{(i)}_{t}\})^T + \mathbf{R}_{b2f}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t })$$
+For instance, we would apply the kalman update from the previous section but with: 
+
+- for $\mathbf{a_A}_t$: 
+$$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\} \mathbf{0}_{3 \times 3})$$
+$$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 3} = \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t } $$
+$$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}(\mathbf{a_A}_t - \mathbf{\hat{z}})$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{a_A}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
+
+
+- for $\mathbf{p_V}_t$: 
+$$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{0}_{3 \times 3} \mathbf{I}_{3 \times 3} )$$
+$$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 3} =  \mathbf{R}_{\mathbf{p_V}_t }$$
+$$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}(\mathbf{p_V}_t - \mathbf{\hat{z}})$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{p_V}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
 
 ## Other sources or reweighting
 
 (2, 3 and 5) defines three other weight updates.
 
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(2)}_t; \mathbf{q}^{(i)}_t; \mathbf{R}_{\mathbf{q_V}_t })$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{a_A}_t; \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_t\}\mathbf{g} + \mathbf{a}^{(i)}_t,~ \mathbf{R}_{\mathbf{a_A}_t} + \mathbf{Pa}^{-(i)}_t)$$
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(3)}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t, \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{\boldsymbol{\omega}_G}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t,~ \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(5)}_t; \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_t\}(\mathbf{g}) + \mathbf{a}^{(i)}_t, \mathbf{R}_{\mathbf{a_A}_t} + \mathbf{Pa}^{-(i)}_t)$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{q_V}_t; \mathbf{q}^{(i)}_t,~ \mathbf{R}_{\mathbf{q_V}_t })$$
+
 
 **TODO**: Check that matrix of covariance is correct for 5. Found covariance as covariance of sum of normal but seems too simple.
 
-where $\mathbf{Pa}^{-(i)}_t$ is the variance of $\mathbf{a}$ in $\mathbf{P}^{-(i)}_t$ and $\mathbf{g}$ is the gravity vector.
-
-## Kalman update
-
-**TODO**: plain kalman update matrix operations.
+where $\mathbf{Pa}^{-(i)}_t$ is the variance of $\mathbf{a}$ in $\mathbf{\Sigma}^{-(i)}_t$ and $\mathbf{g}$ is the gravity vector.
 
 ## Algorithm summary
 
-1. Initiate $N$ particles with $\mathbf{p}_0$, $\mathbf{q}_0 ~ \sim p(\mathbf{q}_0)$, $\mathbf{P}_0$ and $w = 1/N$ 
+1. Initiate $N$ particles with $\mathbf{p}_0$, $\mathbf{q}_0 ~ \sim p(\mathbf{q}_0)$, $\mathbf{\Sigma}_0$ and $w = 1/N$ 
 2. While new sensor measurements $(\mathbf{z}_t, \mathbf{u}_t)$ 
    - foreach $N$ particles $(i)$:
        1. sample new latent variable $\boldsymbol{\theta_t}$ from $\mathbf{u}_t$
        2. Depending on the type of measurement:
-           - **Gyroscope**: 
-		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(3)}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t, \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
-     	   - **Vicon**: 
-		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})- = \mathcal{N}(\mathbf{z}^{(1)}_t; \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{m}^{(i)}_t, \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{P}^{-(i)}_t  (\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\})$$
-		   and update particle state with a partial kalman prediction and a new
-		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(2)}_t; \mathbf{q}^{(i)}_t; \mathbf{R}_{\mathbf{q_V}_t }) p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^-$$
-		   
      	   - **Accelerometer**:
-		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^- = \mathcal{N}(\mathbf{z}^{(4)}_t; \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{m}^{(i)}_t, \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{P}^{-(i)}_t  (\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{v}_t\{\boldsymbol{\theta}^{(i)}_t\})$$
-		   from the acceleration information and update particle state with a partial kalman prediction and update, and then a new $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{z}^{(5)}_t; \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_t\}(\mathbf{g}) + \mathbf{a}^{(i)}_t, \mathbf{R}_{\mathbf{a_A}_t} + \mathbf{Pa}^{-(i)}_t) p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^-$$
-		   from the orientation information
-      3. Update $w^{(i)}_t$ as $w^{(i)}_t = p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) w^{(i)}_{t-1}$	  
+		   Partial kalman update with: 
+		   $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\} \mathbf{0}_{3 \times 3})$$
+		   $$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 3} = \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_{t}\}\mathbf{R}_{\mathbf{a_A}_t } $$
+		   $$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}(\mathbf{a_A}_t - \mathbf{\hat{z}})$$
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^- = \mathcal{N}(\mathbf{a_A}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{a_A}_t; \mathbf{R}_{f2b}\{\mathbf{q}^{(i)}_t\}\mathbf{g} + \mathbf{a}^{(i)}_t, \mathbf{R}_{\mathbf{a_A}_t} + \mathbf{Pa}^{-(i)}_t) p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^-$$
+           - **Gyroscope**: 
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{\boldsymbol{\omega}_G}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t,~ \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
+     	   - **Vicon**: 
+		   Partial kalman update with: 
+		   $$\mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 6} = (\mathbf{0}_{3 \times 3} \mathbf{I}_{3 \times 3} )$$
+		   $$\mathbf{R}_t\{\boldsymbol{\theta}^{(i)}_t\}_{3 \times 3} =  \mathbf{R}_{\mathbf{p_V}_t }$$
+		   $$\mathbf{x}^{(i)}_t = \mathbf{H}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{K}(\mathbf{p_V}_t - \mathbf{\hat{z}})$$
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^- = \mathcal{N}(\mathbf{p_V}_t; \mathbf{\hat{z}}_t, \mathbf{S})$$
+		   $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{q_V}_t; \mathbf{q}^{(i)}_t,~ \mathbf{R}_{\mathbf{q_V}_t }) p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1})^-$$
+		   
+      3. Update $w^{(i)}_t$: $w^{(i)}_t = p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) w^{(i)}_{t-1}$	  
   - Compute $\mathbf{p}_t$ and $\mathbf{q}_t$ as the expectation from the distribution approximated by the N particles.
   - Resample if the number of effective particle is too low
 
