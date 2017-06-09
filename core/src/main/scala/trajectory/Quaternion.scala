@@ -32,6 +32,7 @@ object TQuaternion {
     q * omegaQ
   }
 
+  
   def localAngleToLocalQuat(angle: Vec3): Quaternion[Real] = {
     val l = norm(angle) / 2
     val nrot = normalize(angle) * sin(l)

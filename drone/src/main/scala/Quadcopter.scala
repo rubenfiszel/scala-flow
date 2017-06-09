@@ -161,6 +161,7 @@ case class QuadTrajectorySection(init: Init = Init.zero,
   lazy val cost =
     axis.map(_.cost).sum
 
+  
   def isFeasible(fminAllowed: Thrust = 5.0,
                  fmaxAllowed: Thrust = 20.0,
                  wmaxAllowed: Omega = 20.0,
