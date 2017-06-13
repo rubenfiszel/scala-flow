@@ -26,8 +26,8 @@ object Quat {
   def quatToAxisAngle(qstart: Quaternion[Real], qend: Quaternion[Real]) = {
     val q = qstart.reciprocal * qend
     val v = Vec3(q.i, q.j, q.k)
-    val angle = 2 * acos(q.r)
-//    println("AAA: " + normalize(v))
+    //floating point error seems to give q.r > 1 sometimes which fail acos
+    val angle = 2 * acos(Math.min(q.r, 1.0))
     normalize(v) * angle
   }
 

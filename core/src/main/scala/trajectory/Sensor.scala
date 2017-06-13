@@ -16,7 +16,7 @@ case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)(
     implicit val modelHook: ModelHook[Trajectory])
     extends VectorSensor[Trajectory] {
 
-  def genVector(traj: Trajectory, t: Time) =
+  def genVector(traj: Trajectory, t: Time) =     
     traj.getOmega(t, dt)
 
 }

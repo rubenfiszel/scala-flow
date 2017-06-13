@@ -8,16 +8,16 @@ object DroneParticle extends FlowApp[Trajectory] {
 
   //****** Model ******
 
-  val dtIMU   = 0.1
+  val dtIMU   = 0.001
   val dtCI    = dtIMU
-  val dtVicon = dtIMU * 5
+  val dtVicon = (dtIMU * 50)+0.0009
 
   val covScale = 0.1
   //filter parameter
   val covAcc    = DenseMatrix.eye[Real](3) * (0.1 * covScale)
   val covGyro   = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covViconP = DenseMatrix.eye[Real](3) * (0.01 * covScale)
-  val covViconQ = DenseMatrix.eye[Real](3) * (0.01 * covScale)
+  val covViconP = DenseMatrix.eye[Real](3) * (0.0001 * covScale)
+  val covViconQ = DenseMatrix.eye[Real](3) * (0.0001 * covScale)
 
   val stdCIThrust = 0.1 * covScale
   val covCIOmega  = DenseMatrix.eye[Real](3) * (0.1 * covScale)

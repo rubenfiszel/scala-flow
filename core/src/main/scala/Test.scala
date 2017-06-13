@@ -5,15 +5,24 @@ import breeze.interpolation._
 
 case class TestTS[A: Data](rawSource1: Source[A], rawSource2: Source[A], nb: Int) extends SinkBatch2[A, A] {
 
-  def toInterpolation(l: Array[Timestamped[A]]) = {
+  def toInterpolation(ar: Array[Timestamped[A]]) = {
+
+    def distinct(v: Time, l: List[Timestamped[A]]): List[Timestamped[A]] = l match {
+      case Nil => Nil
+      case x :: xs if x.t == v => distinct(v, xs)
+      case x :: xs => x :: distinct(x.t, xs)
+    }
+
+    val l = distinct(-1, ar.toList).toArray
     val toV   = implicitly[Data[A]]
     val ts_x  = DenseVector(l.map(_.time))
     val min   = ts_x.min
     val max   = ts_x.max
     val ts_yt = l.map(x => toV.toValues(x.v))
+//    println(ts_yt.toList.filter(_.exists(_.isNaN)))
     val ts_ys =
       (0 until ts_yt(0).length).map(i => DenseVector(ts_yt.map(_(i))))
-    val interpolated = ts_ys.map(ys => CubicInterpolator(ts_x, ys))
+    val interpolated = ts_ys.map(ys => LinearInterpolator(ts_x, ys))
     (interpolated, min, max)
   }
 
@@ -48,7 +57,7 @@ case class TestTS[A: Data](rawSource1: Source[A], rawSource2: Source[A], nb: Int
       println(s"[${Console.GREEN}flow info${Console.RESET}] Mean errors: $avgsS")
       println(s"[${Console.GREEN}flow info${Console.RESET}] Max  errors: $maxsS")
     } catch {
-      case e @ _ => println("error: " + e + " while trying to testTS")
+      case e: Throwable => println("error: " + e + " while trying to testTS")
     }
 
   }

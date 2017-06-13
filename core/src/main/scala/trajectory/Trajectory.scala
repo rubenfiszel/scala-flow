@@ -74,9 +74,10 @@ trait Trajectory extends Model {
   }
 
   def getOmega(t: Time, dt: Timestep): Vec3 = {
+
     val rt = lastPossibleDelta(t, dt)
     Quat.quatToAxisAngle(getOrientationQuaternion(rt),
-                                getOrientationQuaternion(rt + dt)) / dt
+      getOrientationQuaternion(rt + dt)) / dt
   }
 
   def getPoint(t: Time, dt: Timestep = 1e-3): TrajectoryPoint =
