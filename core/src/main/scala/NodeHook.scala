@@ -21,6 +21,8 @@ trait NodeHook {
       def rec(sn: Node, end: List[Node]): List[Node] =
         if (sn.isInstanceOf[Buffer[_]])
           List(sn)
+        else if (end.contains(sn))
+          List(sn)
         else 
           sn :: sn.sources.filterNot(end.contains(_)).flatMap(x => rec(x, end)).toList
       b.trans :: rec(b.out, b.sources.toList)

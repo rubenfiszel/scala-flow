@@ -35,3 +35,11 @@ trait Block4[A, B, C, D, E] extends Source4[A, B, C, D] with Block[E] {
   def listen3(x: Timestamped[C]) = ()
   def listen4(x: Timestamped[D]) = ()
 }
+
+trait Block5[A, B, C, D, E, F] extends Source5[A, B, C, D, E] with Block[F] {
+  def listen1(x: Timestamped[A]) = ()
+  def listen2(x: Timestamped[B]) = ()
+  def listen3(x: Timestamped[C]) = ()
+  def listen4(x: Timestamped[D]) = ()
+  def listen5(x: Timestamped[E]) = ()  
+}

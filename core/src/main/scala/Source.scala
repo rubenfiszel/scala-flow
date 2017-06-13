@@ -29,8 +29,8 @@ trait Source[A] extends Node { parent =>
 
   override def toString = name
 
-  private def lift[B, C](f: B => C): Timestamped[B] => Timestamped[C] =
-    new NamedFunction((x: Timestamped[B]) => x.map(f),
+  private def lift[B, C](f: B => C): Timestamped[B] => C =
+    new NamedFunction((x: Timestamped[B]) => f(x.v),
                       f.toString,
                       RequireModel.isRequiring(f))
 
@@ -78,11 +78,20 @@ trait Source[A] extends Node { parent =>
       override def requireModel = RequireModel.isRequiring(f)
     }
 
-  def println(): Source[A] =
-    foreach(x => Console.println(x), "Println")
+  def debug(): Source[A] =
+    foreachT(x => Console.println(s"[$this]: $x)"), "Debug")
 
   def foreach(f: A => Unit, name1: String = ""): Source[A] =
     foreachT(liftUnit(f), name1)
+
+  //USE ONLY WHEN THERE IS NO LOOP INVOLVED
+  def buffer(init: A) =
+    Buffer(this, init, this)
+
+  //Get old A but with the time of the new A
+  def bufferWithTime(init: A) =
+    zip(buffer(init))
+      .map(x => x._2)
 
   def takeWhileT(b: Timestamped[A] => Boolean, name1: String = ""): Source[A] =
     new Op1[A, A] {
@@ -103,12 +112,12 @@ trait Source[A] extends Node { parent =>
   def takeWhile(b: A => Boolean, name1: String = ""): Source[A] =
     takeWhileT(liftBool(b), name1)
 
-  def mapT[B](f: Timestamped[A] => Timestamped[B],
+  def mapT[B](f: Timestamped[A] => B,
               name1: String = ""): Source[B] =
     new Op1[A, B] {
       def rawSource1 = parent
       def listen1(x: Timestamped[A]) = {
-        val mx = f(x)
+        val mx = Timestamped(x.t, f(x), x.dt)
         broadcast(mx)
       }
 
@@ -184,9 +193,14 @@ trait Source[A] extends Node { parent =>
       def name = "Zip2"
     }
 
+  def unzip2[B, C](implicit ev: A <:< (B, C)): (Source[B], Source[C]) = {
+    val s = map(ev.apply, "Unzip")
+    (s.map(_._1), s.map(_._2))
+  }
+
   private def mergeTS[B, C](
-      x: Timestamped[(Timestamped[B], Timestamped[C])]): Timestamped[(B, C)] =
-    x.map(y => (y._1.v, y._2.v))
+      x: Timestamped[(Timestamped[B], Timestamped[C])]): (B, C) =
+    (x.v._1.v, x.v._2.v)
 
   def zip[B](s2: Source[B]) =
     zipT(s2).mapT(mergeTS, "ZipT")
@@ -295,7 +309,7 @@ trait Source[A] extends Node { parent =>
     }
 
   def toTime =
-    mapT(x => x.map(y => x.time))
+    mapT(_.t)
 
   def drop(n: Int) = {
     new Op1[A, A] {

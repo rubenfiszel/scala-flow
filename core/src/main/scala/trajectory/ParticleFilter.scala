@@ -9,37 +9,38 @@ import breeze.linalg.{norm, normalize, cross, DenseMatrix, DenseVector, eig, eig
 
 //https://ai2-s2-pdfs.s3.amazonaws.com/0322/8afc107f925b7a0ca77d5ade2fda9050f0a3.pdf
 case class ParticleFilter(rawSource1: Source[Acceleration],
-                          rawSource2: Source[BodyRates],
-                          rawSource3: Source[(Thrust, BodyRates)],
-                          rawSource4: Source[(Position, Quat)],
+                          rawSource2: Source[Omega],
+                          rawSource3: Source[(Position, Attitude)],
+                          rawSource4: Source[Thrust],
+                          rawSource5: Source[Omega],
                           init: Quat,
-  dt: Timeframe,
-                   N: Int,
-                   covAcc: MatrixR,
-                   covGyro: MatrixR,
-                   covViconP: MatrixR,
-                   covViconQ: MatrixR,
-                   stdCIThrust: Real,
-                   covCIOmega: MatrixR)
-    extends Block4[Acceleration, BodyRates, (Thrust, BodyRates), (Position, Quat), Quat] {
+                          dt: Timeframe,
+                          N: Int,
+                          covAcc: MatrixR,
+                          covGyro: MatrixR,
+                          covViconP: MatrixR,
+                          covViconQ: MatrixR,
+                          stdCIThrust: Real,
+                          covCIOmega: MatrixR)
+    extends Block5[Acceleration, Omega, (Position, Attitude), Thrust, Omega, Attitude] {
 
-  def acceleration = rawSource1
-  def bodyRate     = rawSource2
-  def controlInput = rawSource3
-  def vicon        = rawSource4
+  def acceleration = source1
+  def bodyRate     = source2
+  def vicon        = source3
+  def thrustC      = source4
+  def omegaC       = source5
 
   def name = "ParticleFilter"
 
-  type Weight   = Real
-  type Attitude = Quat
+  type Weight = Real
 
   case class State(p: Position, v: Velocity, a: Acceleration)
   case class Particle(w: Weight, q: Attitude, s: State)
 
-  def sampleBR(q: Quat, br: BodyRates): Quat = {
+  def sampleBR(q: Quat, br: Omega): Quat = {
     val withNoise  = Rand.gaussian(br, covCIOmega)
     val integrated = withNoise * dt
-    val lq         = TQuaternion.localAngleToLocalQuat(integrated)
+    val lq         = Quat.localAngleToLocalQuat(integrated)
     lq.rotateBy(q)
   }
 

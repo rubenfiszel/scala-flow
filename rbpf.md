@@ -1,7 +1,10 @@
 ---
-title: "Sensor fusion for drones: Rao-Blackwellized Particle filter for POSE estimation"
+title: "Sensor fusion for drones: Rao-Blackwellized Particle filter for POSE and wind estimation"
 author: Ruben Fiszel
-date: \today
+affiliation: Stanford University
+email: ruben.fiszel@epfl.ch
+date: June 2017
+link-citations: true
 ---
 
 # Introduction
@@ -26,7 +29,7 @@ The referential by default is the fixed world frame.
 
 POSE is the task of determining the position and orientation of an object through time. It is a subroutine of SLAM (Software Localization And Mapping). We can formelize the problem as:
 
-At each timestep, find the best expectation of a function of the hidden variable state (position and orientation), from their initial distribution and observable random variables (such as sensor measurements).
+At each timestep, find the best expectation of a function of the hidden variable state (position and orientation), from their initial distribution and the history of observable random variables (such as sensor measurements).
 
 - The state $\mathbf{x}$
 - The function $g(\mathbf{x})$ such that $g(\mathbf{x}_t) = (\mathbf{p}_t, \mathbf{q}_t)$ where $\mathbf{p}$ is the position and $\mathbf{q}$ is the attitude as a quaternion.
@@ -34,11 +37,15 @@ At each timestep, find the best expectation of a function of the hidden variable
 
 The algorithm inputs are:
 
-- control inputs $\mathbf{u}_t$ (the command sent to the flight controller)
+- control inputs $\mathbf{u}_t$ (the commands sent to the flight controller)
 - sensor measurements $\mathbf{z}_t$ coming from different sensors with different sampling rate
 - information about the sensors (sensor measurements biases and matrix of covariance) 
 
-## Quaternions
+### Wind
+
+We will add one novel subtlety over vanilla POSE is that we would like to also keep track of the wind force. This would enable us to do smooth motion planning in windy environments instead of limiting ourselves to indoors.
+
+## Quaternion
 
 Quaternions are extensions of complex numbers but with 3 imaginary parts. Unit quaternions can be used to represent orientation, also referred to as attitude. Quaternions algebra make rotation composition simple and quaternions avoid the issue of gimbal lock. In all filters presented, they will be used to represent the attitude.
 
@@ -46,13 +53,20 @@ Quaternion rotations composition is: $q_2 q_1$ which results in $q_1$ being rota
 
 Rotation of a vector by a quaternion is done by: $q v q^*$ where $q$ is the quaternion representing the rotation, $q^*$ its conjugate and $v$ the vector to be rotated.
 
+### Average quaternion
+
 It will be useful later to calculate the average quaternion of a set of quaternions. Unfortunately, the average of its components $\frac{1}{N} \sum q_i$ or *barycentric* mean is unsound: Indeed, attitude do not belong to a vector space but a homogenous Riemannian manifold (the four dimensional unit sphere). To convince yourself of the unsoundness of the *barycentric* mean, see that the addition and barycentric mean of two unit quaternion is not necessarily an unit quaternion ($(1, 0, 0, 0)$ and $(-1, 0, 0, 0)$ for instance. Furthermore, angle being periodic, the *barycentric* mean of a quaternion with angle $-178^\circ$ and another with same body-axis and angle $180^\circ$ gives $1^\circ$ instead of the expected $-179^\circ$. 
 
-Two solutions are possible to calculate the average quaternion: 
+We present here two solutions to calculate the average quaternion: 
 
-- Use the barycentric mean but negate the components of the quaternion that do not belong to the same demi-sphere as an arbitrary quaternion in the set. This solve the aberrant case above and is practical but not very satisfying nonetheless.
-- Use the the intrinsic gradient descent algorithm
+- Use the barycentric mean but negate the components of the quaternion that do not belong to the same demi-sphere as an arbitrary quaternion in the set. This solves the aberrant case above and is practical. It is a simplified form of the algorithm presented in [@markley_averaging_2007].
+- Use the the intrinsic gradient descent algorithm [@xavier_computing_1998] . Starting with an abitrary mean $\bar{\mathbf{q}}$ (we use the one from the previously described method), we can iteratively improve the convergence between the quaternions. 
+$$\mathbf{e_i} = \mathbf{q_i}\bar{\mathbf{q}}_t^{-1}$$ such that
+$$\mathbf{q_i} = \mathbf{e_i}\bar{\mathbf{q}}$$
+$$\mathbf{e} = \frac{1}{2n}\sum \mathbf{e_i}$$
+$$\bar{\mathbf{q}}_{t+1} = \mathbf{e}\bar{\mathbf{q}}_t$$
 
+We iterate until a matric on $e$ is satisfying (like its angle as measured by its real component) or after a fixed number of iteration.
 
 ## Helper functions and matrices
 
@@ -114,25 +128,35 @@ We assume that since the biases of the sensor are known, the sensor have been ca
 
 Finally, we also assume that the profile (surface on which the wind applies pressure on) of the drone against the wind is approximately the same for all attitude of the drone. This is definitely not true and this could be easily fixed by using an approximate and differentiable function to measure the profile of the drone in every direction.
 
-### Model dynamics
+### Model dynamic
 
-- $\mathbf{w}(t+1) = \mathbf{w}$
+- $\mathbf{w}(t+1) = \mathbf{w} + \mathbf{a}^\epsilon_t$ where $\mathbf{w}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_{\mathbf{w}_t })$
 - $\mathbf{a}(t+1) = \mathbf{R}_{b2f}\{\mathbf{q}(t+1)\}\mathbf{T}_{2a} {t_C}(t+1) + \mathbf{w}(t) + \mathbf{a}^\epsilon_t$ where $\mathbf{a}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_{\mathbf{a}_t })$
 - $\mathbf{v}(t+1) = \mathbf{v}(t) + \Delta t \mathbf{a}(t) + \mathbf{v}^\epsilon_t$ where $\mathbf{v}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_{\mathbf{v}_t })$
 - $\mathbf{p}(t+1) = \mathbf{p}(t) + \Delta t \mathbf{v}(t) + \mathbf{p}^\epsilon_t$ where $\mathbf{p}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_{\mathbf{p}_t })$
-- $\boldsymbol{\omega}(t+1) = \mathbf{\boldsymbol{\omega}_C}(t+1)$
+- $\boldsymbol{\omega}(t+1) = \mathbf{\boldsymbol{\omega}_C}(t+1) + \mathbf{p}^\epsilon_t$ where $\mathbf{p}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{Q}_{\mathbf{p}_t })$
 - $\mathbf{q}(t+1) = \mathbf{q}(t)*R2Q(\Delta t \boldsymbol{ \omega(t) })$
 
-Note that $\mathbf{q}(t+1)$ is known because the model is conditionned under $\boldsymbol{\theta}^{(i)}_{t+1}$.
+Note that in our model, $\mathbf{q}(t+1)$ must be known. Fortunately, as we will see later, our RBPF is conditionned under the attitude so it is known.
 
-## Observations
+## State
+
+The time series of the variables of our dynamic model constitute a hidden markov chain. Indeed, the model is "memoryless" and depend only on the current state and of a sampled transition. 
+
+States contain variables that enable us to keep track of some of those hidden variables which is our ultimate goal (for POSE $\mathbf{p}$ and $\mathbf{q}$). States at time $t$ are denoted by $\mathbf{x}_t$. Different filters require different state variables depending on their structure and assumptions. 
+
+## Observation
+
+Observations are revealed variables conditionned under the variables of our dynamic model. Our ultimate goal is to deduce the states from the observations. 
+
+Observations contain the control input $\mathbf{u}$ and the measurements $\mathbf{z}$.
 
 $$\mathbf{y}_t = (\mathbf{z}_t, \mathbf{u}_t)^T = ((\mathbf{a_A}_t, \mathbf{\boldsymbol{\omega}_G}_t, \mathbf{p_V}_t, \mathbf{q_V}_t), ({t_C}_t, \mathbf{\boldsymbol{\omega}_C}_t))^T$$
 
 
 ## Filtering and smoothing
 
-**Smoothing** is the statistical task of finding the expectation of the state variable from multiple observation variable ahead. 
+**Smoothing** is the statistical task of finding the expectation of the state variable from the past history of observations and multiple observation variables ahead
 
 $$\mathbb{E}[g(\mathbf{x}_{0:t}) | \mathbf{y}_{1:t+k}]$$
 
@@ -147,17 +171,24 @@ $k$ is a contant and the first observation is $y_1$
 
 # Complementary Filter
 
+The complementary filter is the simplest of all and very common to retrieve the attitude on low-computing systems because of its low computational complexity. The gyroscope and accelerometer both provide a measurement that can help us to estimate the attitude. The gyroscope indeed gives us a noisy measurement of the angular velocity from which we can retrieve the new attitude from the past one by time integration: $\mathbf{q}_t = \mathbf{q}_{t-1}*R2Q(\Delta t \mathbf{\omega})$. This is commonly called "Dead reckoning"[^ded] and is prone to accumulation error, referred as drift. Indeed, like brownian motions, even if the process is unbiased, the variance grows with time. Reducing the noise cannot solve the issue entirely: even with extremely precise instruments, you are subject to floating point errors.
+
+Fortunately, the accelerometer gives us a highly unprecise measurement of the orientation but is not subject to drift. Indeed, if not subject to other accelerations, the accelerometer measures the gravity field orientation. Since this field is oriented toward earth, it is possible to retrieve the current rotation from that field and by extension the attitude. However, in the case of a drone, it is subject to continuous and signifiant acceleration and vibration. Hence, the assumption that we retrieve the gravity field directly is wrong. We can solve this by substracting the acceleration deduced from the thrust control input. 
+
+**TODO** pictures
+
+The idea of the filter is to combine the precise short-term measurements of the gyroscope subject to drift with the "long-term" measurements of the accelerometer.
+
+**TODO**: continue
+
 # Kalman Filter
 
 ## Linearity
 
-Kalman filters are optimal linear filters.
+Kalman filters are optimal linear filters. Hence, Kalman filters are non optimal for our problem because our state has some non-linear components (attitude).Indeed, rotations and attitudes belong to $SO(3)$ which is not a vector space. Therefore, we cannot use vanilla kalman filters. However, understanding kalman filters give us a good understanding of Bayesian inference and the filters that we will present after use Kalman filters or are extensions of them to deal with non-linearity. One example of such extension is the extended kalman filter that we will present in the following section.
 
-Hence, Kalman filters are non optimal for our problem because our state has some non-linear components (attitude).
+**TODO**: Kalman explanataion
 
-Indeed, rotations and attitudes belong to $SO(3)$ which is not a vector space.
-
-However, we can use extension of the Kalman Filter to deal with non-linearity like the Extended Kalman Filters
 
 ## Extended Kalman Filters
 
@@ -165,9 +196,11 @@ EKF are linearized Kalman filters of the first order.
 
 An EKF is semi-developped in the annex.
 
+**TODO**: EKF explanations
+
 ## Unscented Kalman Filters
 
-**TODO**
+**TODO**: UKF explanations
 
 # Particle Filter
 
@@ -185,7 +218,14 @@ When the number of effective particles is too low ($N/10$), we apply systematic 
 
 ## Introduction
 
-Compared to a plain PF, RPBF leverage the linearity of some components of the state by assuming our model gaussian conditionned on a latent variable: Given the attitude $q_t$, our model is linear. This is where RPBF shines: We use particle filtering to estimate our latent variable, the attitude, and we use the optimal kalman filter to estimate the state variable.
+Compared to a plain PF, RPBF leverage the linearity of some components of the state by assuming our model gaussian conditionned on a latent variable: Given the attitude $q_t$, our model is linear. This is where RPBF shines: We use particle filtering to estimate our latent variable, the attitude, and we use the optimal kalman filter to estimate the state variable. 
+
+This main inspiration from this approach is [@vernaza_rao-blackwellized_2006]. However, it differs by:
+
+- adding the wind as a state augmentation
+- adapt the filter to drones by taking into account that the system is too dynamic for assuming that the accelerometer simply output the gravity vector. This is solved by augmenting the state with the acceleration as shown later.
+- not use measurements of the IMU as control inputs (this is usually used for wheeled vehicles because of the drift from the wheels) but have both control inputs and measurements.
+- add an attitude sensor.
 
 We introduce the latent variable $\boldsymbol{\theta}$
 
@@ -229,12 +269,14 @@ $\mathbf{\boldsymbol{\omega}_C}^\epsilon_t$ represents the error from the contro
 
 Initial attitude $\mathbf{q_0}$ is sampled such that the drone pitch and roll are none (parralel to the ground) but the yaw is unknown and uniformly distributed.
 
-## Measurements model
+Note that $\mathbf{q}(t+1)$ is known in the [model dynamic](#model-dynamic) because the model is conditionned under $\boldsymbol{\theta}^{(i)}_{t+1}$.
+
+## Measurement model
 
 1. Accelerometer: 
 $$\mathbf{a_A}(t) = \mathbf{R}_{f2b}\{\mathbf{q}(t)\}\mathbf{a}(t) + \mathbf{a_A}^\epsilon_t$$ where $\mathbf{a_A}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{a_A}_t })$
 2. Gyroscope: 
-$$\mathbf{\boldsymbol{\omega}_G}(t) = Q2R(\mathbf{q}^{(i)}(t)^-1\mathbf{q}^{(i)}(t-1))/\Delta t + \mathbf{\boldsymbol{\omega}_G}^\epsilon(t)$$ where $\mathbf{\boldsymbol{\omega}_G}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}})$
+$$\mathbf{\boldsymbol{\omega}_G}(t) = Q2R({\mathbf{q}^{(i)}(t-1)}^{-1}\mathbf{q}^{(i)}(t))/\Delta t + \mathbf{\boldsymbol{\omega}_G}^\epsilon(t)$$ where $\mathbf{\boldsymbol{\omega}_G}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}})$
 3. Position: 
 $$\mathbf{p_V}(t) = \mathbf{p}(t)^{(i)} + \mathbf{p_V}^\epsilon_t$$ where $\mathbf{p_V}^\epsilon_t \sim \mathcal{N}(\mathbf{0}, \mathbf{R}_{\mathbf{p_V}_t })$
 4. Attitude:
@@ -271,11 +313,10 @@ $$\mathbf{Q}_t\{\boldsymbol{\theta}^{(i)}_t\}_{12 \times 12} =
 & & &\mathbf{Q}_{\mathbf{p}_t }
 \end{array} \right)$$
 
-
 $$\hat{\mathbf{x}}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{x}^{(i)}_{t-1} + \mathbf{B}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{u}_t $$
 $$ \mathbf{\Sigma}^{-(i)}_t = \mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\} \mathbf{\Sigma}^{-(i)}_{t-1}  (\mathbf{F}_t\{\boldsymbol{\theta}^{(i)}_t\})^T + \mathbf{Q}_t\{\boldsymbol{\theta}^{(i)}_t\}$$
 
-## Kalman measurements update
+## Kalman measurement update
 
 The [measurement model](
 #measurements-model-1) defines how to compute $p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-_K1})$ 
@@ -331,9 +372,9 @@ $$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mat
 In the [measurement model](
 #measurements-model), (2 and 4) define two other weight updates.
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{\boldsymbol{\omega}_G}_t; (\mathbf{q}^{(i)}_t - \mathbf{q}^{(i)}_{t-1})/\Delta t,~ \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t})$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{\boldsymbol{\omega}_G}_t; Q2R({\mathbf{q}^{(i)}_{t-1}}^{-1}\mathbf{q}^{(i)}_t)/\Delta t,~ \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}})$$
 
-$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(\mathbf{q_V}_t; \mathbf{q}^{(i)}_t,~ \mathbf{R}_{\mathbf{q_V}_t })$$
+$$p(\mathbf{y}_t | \boldsymbol{\theta}^{(i)}_{0:t-1}, \mathbf{y}_{1:t-1}) = \mathcal{N}(Q2R({\mathbf{q}^{(i)}}^{-1}\mathbf{q_V}_t);~ 0 ,~ \mathbf{R}_{\mathbf{q_V}})$$
 
 
 ## Algorithm summary
@@ -453,15 +494,15 @@ $${\mathbf{H}_t}_{16 \times 16} = \left . \frac{\partial h}{\partial \mathbf{x} 
 & & & & \mathbf{I}_{4 \times 4}  \\
 \end{array} \right)$$
 
-$$\mathbf{R}_t_{13 \times 13} = 
+$${\mathbf{R}_t}_{13 \times 13} = 
 \left( \begin{array}{cccc}
-\mathbf{R}_{\mathbf{a_A}_t } & & &   \\
-& \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}_t} & & \\
-& & \mathbf{R}_{\mathbf{p_V}_t } & \\
-& & & \frac{1}{2}\mathbf{R}_{\mathbf{q_V}_t }*\mathbf{q}_{t-1}
+\mathbf{R}_{\mathbf{a_A}_t} & & & \\
+& \mathbf{R}_{\mathbf{\boldsymbol{\omega}_G}} & & \\
+& & \mathbf{R}_{\mathbf{p_V}} & \\
+& & & ???\\
 \end{array} \right)$$
 
-$$1/2*\mathbf{R}_{\mathbf{q_V}_t }*\mathbf{q}_{t-1}$$
+**TODO**: Use (Shibani, 2011) to replace ???
 
 ### Kalman update
 
@@ -582,3 +623,7 @@ for sym in [ax, ay, az, q0, q1, q2, q3]:
 (q3, 1, 2*ax*q0 + 2*az*q2 - 2*ay*q3)
 (q3, 2, 2*ax*q1 + 2*ay*q2 + 2*az*q3)
 ```
+
+# References
+
+[^ded]: The etymology for "Dead reckoning" comes from the mariners of the XVIIth century that used to calculate the position of the vessel with log book. The interpretation of "dead" is subject to debate. Some argue that it is a mispelling of "ded" as in "deduced". Others argue that it should be read by its old meaning: *absolute*.

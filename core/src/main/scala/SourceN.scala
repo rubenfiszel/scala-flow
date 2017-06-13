@@ -119,3 +119,32 @@ trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   }
 
 }
+
+trait Source5[A, B, C, D, E] extends Source4[A, B, C, D] {
+  self =>
+  def rawSource5: Source[E]
+  override def rawSources = rawSource5 :: super.rawSources
+  override def sources = source5 :: super.sources
+  def listen5(x: Timestamped[E])
+
+  override def source1: Source[A] =
+    overrideSource1(super.source1, rawSource4)
+
+  override def source2: Source[B] =
+    overrideSourceX(source1, super.source2)
+
+  override def source3: Source[C] =
+    overrideSourceX(source1, super.source3)
+
+  override def source4: Source[D] =
+    overrideSourceX(source1, super.source4)
+  
+  def source5: Source[E] =
+    overrideSourceX(source1, rawSource5)
+
+  override def setup() = {
+    super.setup()
+    source5.addChannel(Channel5(self, scheduler))
+  }
+
+}

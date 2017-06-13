@@ -20,7 +20,7 @@ object Clock {
 
 }
 
-case class Clock(dt: Timestep)(implicit val schedulerHook: SchedulerHook,
+class Clock(dt: Timestep)(implicit val schedulerHook: SchedulerHook,
                                val nodeHook: NodeHook)
     extends EmitterStream[Time] {
 
@@ -48,8 +48,9 @@ trait Buffer[A] extends Op1[A, A] {
   def listen1(x: Timestamped[A]) =
     broadcast(x)
 
+  //-1 to make sure we send before Timestamp 0
   def bcInit() =
-    scheduler.executeAtStart(broadcast(Timestamped(init)))
+    scheduler.executeIn(broadcast(Timestamped(init)), -1)
 
   bcInit()
 
@@ -61,6 +62,8 @@ trait Buffer[A] extends Op1[A, A] {
 
 //Need companion object for call-by-name evaluation of source1
 //Case classes don't support call-by-name
+//parent is because we need to have a reliable model and scheduler
+//that doesn't rely on a loop.
 object Buffer {
   def apply[A](rawSource11: => Source[A], init1: A, parent: Node) =
     new Buffer[A] {

@@ -7,12 +7,6 @@ import spire.implicits._
 import breeze.linalg.DenseVector
 
 package object trajectory {
-  implicit val encodeQuaternion: Encoder[Quaternion[Real]] = deriveEncoder
-  implicit val decodeQuaternion: Decoder[Quaternion[Real]] = deriveDecoder
-
-  implicit object QuaternionData extends Data[Quaternion[Real]] {
-    def toValues(x: Quaternion[Real]) = Seq(x.r, x.i, x.j, x.k)
-  }
 
   implicit class DenseVectorOps(v: VectorR) {
     def toQuaternion = Quaternion(v(0), v(1), v(2), v(3))
@@ -27,7 +21,7 @@ package object trajectory {
     //https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
     def rotate(v: Vec3) = {
       val qga = Quaternion(0.0, v.x, v.y, v.z)
-      val rq = q * qga * q.conjugate
+      val rq = q * qga * q.reciprocal
       Vec3(rq.i, rq.j, rq.k)
     }
 

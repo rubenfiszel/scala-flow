@@ -28,3 +28,9 @@ case class Channel4[A](receiver: Source4[_, _, _, A], scheduler: Scheduler)
   def push(x: Timestamped[A], dt: Time = 0) =
     scheduler.executeIn(receiver.listen4(x), dt)
 }
+
+case class Channel5[A](receiver: Source5[_, _, _, _, A], scheduler: Scheduler)
+    extends Channel[A] {
+  def push(x: Timestamped[A], dt: Time = 0) =
+    scheduler.executeIn(receiver.listen5(x), dt)
+}

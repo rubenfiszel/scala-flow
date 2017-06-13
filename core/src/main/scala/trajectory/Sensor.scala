@@ -8,7 +8,7 @@ case class Accelerometer(cov: DenseMatrix[Real])(
     extends VectorSensor[Trajectory] {
 
   def genVector(traj: Trajectory, t: Time) =
-    traj.getFullLocalAcceleration(t)
+    traj.getLocalAcceleration(t)
 
 }
 
@@ -17,7 +17,7 @@ case class Gyroscope(cov: DenseMatrix[Real], dt: Timestep)(
     extends VectorSensor[Trajectory] {
 
   def genVector(traj: Trajectory, t: Time) =
-    traj.getBodyRates(t, dt)
+    traj.getOmega(t, dt)
 
 }
 
@@ -27,19 +27,25 @@ case class Vicon(covP: MatrixR, covQ: MatrixR)(
 
   def generate(traj: Trajectory, t: Time) =
     (Rand.gaussian(traj.getPosition(t), covP),
-     Rand
-       .gaussian(traj.getOrientationQuaternion(t).toDenseVector, covQ)
-       .toQuaternion)
+      Quat.genQuaternion(traj.getOrientationQuaternion(t), covQ))
 
 }
 
-case class ControlInput(std: Real, covBR: MatrixR, dt: Timestep)(
+case class ControlInputThrust(std: Real, dt: Timestep)(
     implicit val modelHook: ModelHook[Trajectory])
-    extends Sensor[(Thrust, BodyRates), Trajectory] {
+    extends Sensor[Thrust, Trajectory] {
 
   def generate(traj: Trajectory, t: Time) =
-    (Rand.gaussian(traj.getThrust(t), std),
-     Rand.gaussian(traj.getBodyRates(t, dt), covBR))
+    Rand.gaussian(traj.getThrust(t), std)
+
+}
+
+case class ControlInputOmega(covBR: MatrixR, dt: Timestep)(
+    implicit val modelHook: ModelHook[Trajectory])
+    extends Sensor[Omega, Trajectory] {
+
+  def generate(traj: Trajectory, t: Time) =
+    Rand.gaussian(traj.getOmega(t, dt), covBR)
 
 }
 
@@ -55,6 +61,6 @@ object IMU {
   def apply(acc: Accelerometer, gyro: Gyroscope) = Sensor2(acc, gyro)
   def apply(source: Source[Time],
             acc: Accelerometer,
-            gyro: Gyroscope): Source[(Acceleration, BodyRates)] =
+            gyro: Gyroscope): Source[(Acceleration, Omega)] =
     source.map(Sensor2(acc, gyro))
 }

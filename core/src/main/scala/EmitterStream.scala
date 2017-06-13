@@ -7,7 +7,7 @@ trait EmitterStream[A] extends Source[A] with Source0 {
   def registerNext(): Unit = {
     if (iterator.hasNext && !closed) {
       val (t, a) = iterator.next
-      broadcast(Timestamped(t, a))
+      scheduler.registerEvent(broadcast(Timestamped(t, a)), t)
       scheduler.registerEvent(registerNext(), t)
     }
   }
@@ -18,6 +18,6 @@ trait EmitterStream[A] extends Source[A] with Source0 {
   
   override def setup() = {
     super.setup()
-    scheduler.executeAtStart(registerNext())
+    registerNext()
   }
 }

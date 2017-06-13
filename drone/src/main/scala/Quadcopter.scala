@@ -154,7 +154,7 @@ case class QuadTrajectorySection(init: Init = Init.zero,
   def getThrust(t: Time): Thrust =
     norm((getAcceleration(t) - g))
 
-//  def getBodyRates(t: Time, dt: Timestep = 1e-3): Vec3 =
+//  def getOmega(t: Time, dt: Timestep = 1e-3): Vec3 =
 //    Trajectory.bodyRate(Vec3(getNormalVector(t)),
 //      Vec3(getNormalVector(t + dt)), dt)
 
@@ -164,7 +164,7 @@ case class QuadTrajectorySection(init: Init = Init.zero,
   
   def isFeasible(fminAllowed: Thrust = 5.0,
                  fmaxAllowed: Thrust = 20.0,
-                 wmaxAllowed: Omega = 20.0,
+                 wmaxAllowed: Real = 20.0,
                  minTimeSection: Timeframe = 0.02): Feasibility = {
 
     def section(t1: Time, t2: Time): Feasibility = {
@@ -297,7 +297,7 @@ case class QuadTrajectory(init: Init,
 
   def isFeasible(fminAllowed: Thrust = 5.0,
                  fmaxAllowed: Thrust = 20.0,
-                 wmaxAllowed: Omega = 20.0,
+                 wmaxAllowed: Real = 20.0,
                  minTimeSection: Timeframe = 0.02): Boolean = {
     combined.forall(
       _.isFeasible(fminAllowed, fmaxAllowed, wmaxAllowed) == Feasible)

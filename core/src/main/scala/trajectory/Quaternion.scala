@@ -7,7 +7,13 @@ import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
 //Trajectory Quaternion to avoid namespace conflict with spire Quaternion
-object TQuaternion {
+object Quat {
+
+  def genQuaternion(mean: Quat, cov: MatrixR) = {
+    val error =  Rand.gaussian(DenseVector(0.0, 0, 0), cov)
+    val eQ = localAngleToLocalQuat(error)
+    mean*eQ
+  }
 
   def getQuaternion(v1: Vec3, v2: Vec3) = {
     //http://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another

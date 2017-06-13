@@ -24,14 +24,14 @@ trait Trajectory extends Model {
   def getAcceleration(t: Time): Acceleration
 
   //Acceleration + G
-  def getFullAcceleration(t: Time): Acceleration =
-    getAcceleration(t) + gravity
+//  def getFullAcceleration(t: Time): Acceleration =
+//    getAcceleration(t) + gravity
 
   //TODO: getAcceleration in Local coordinate you retard
   //Acceleration in the local referential of the drone
-  def getFullLocalAcceleration(t: Time) = {
+  def getLocalAcceleration(t: Time) = {
     getOrientationQuaternion(t).reciprocal
-      .rotate(getFullAcceleration(t))
+      .rotate(getAcceleration(t))
 
   }
 
@@ -53,7 +53,7 @@ trait Trajectory extends Model {
       } else
         t
 
-    TQuaternion.getQuaternion(
+    Quat.getQuaternion(
       Vec3(0, 0, 1),
       getNormalVector(rt)
     )
@@ -73,32 +73,32 @@ trait Trajectory extends Model {
       .rotateBy(getOrientationQuaternion(rt).reciprocal)
   }
 
-  def getBodyRates(t: Time, dt: Timestep): Vec3 = {
+  def getOmega(t: Time, dt: Timestep): Vec3 = {
     val rt = lastPossibleDelta(t, dt)
-    TQuaternion.quatToAxisAngle(getOrientationQuaternion(rt),
+    Quat.quatToAxisAngle(getOrientationQuaternion(rt),
                                 getOrientationQuaternion(rt + dt)) / dt
   }
 
   def getPoint(t: Time, dt: Timestep = 1e-3): TrajectoryPoint =
     TrajectoryPoint(getPosition(t),
                     getVelocity(t),
-                    getFullLocalAcceleration(t),
+                    getLocalAcceleration(t),
                     getJerk(t),
                     getNormalVector(t),
                     getOrientationQuaternion(t),
                     getThrust(t),
-                    getBodyRates(t, dt))
+                    getOmega(t, dt))
 
 }
 
-case class TrajectoryClock(dt: Timestep)(
+class TrajectoryClock(dt: Timestep)(
     implicit val modelHook: ModelHook[Trajectory],
     val schedulerHook: SchedulerHook,
     val nodeHook: NodeHook
 ) extends Block0[Time]
     with RequireModel[Trajectory] {
   def name = "TrajectoryClock " + dt
-  lazy val out = Clock(dt).takeWhile(_ < model.get.tf, "< tf")
+  lazy val out = (new Clock(dt)).takeWhile(_ < model.get.tf, "< tf")
 }
 
 @JsonCodec

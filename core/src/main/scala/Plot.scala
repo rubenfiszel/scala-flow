@@ -47,13 +47,16 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
 
     val f = new Figure("fig " + i, ys.length, 1)
     f.width = 1920
-    f.height = 1080
+    f.height = 2160
     f.visible = false
-    val titles =
-      if (ys.length == 3)
+    val titles = ys.length match {
+      case 3 =>
         Seq("x", "y", "z")
-      else
+      case 4 =>
         Seq("r", "i", "j", "k")
+      case 7 =>
+        Seq("x", "y", "z", "r", "i", "j", "k")
+    }
     ys.zip(ys2).zip(titles).zipWithIndex.foreach {
       case (((v1, v2), t), i: Int) => {
         val p = f.subplot(i)
