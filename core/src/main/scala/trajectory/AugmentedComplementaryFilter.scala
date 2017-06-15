@@ -6,76 +6,84 @@ import spire.implicits._
 import spire.algebra.Field
 import breeze.linalg.{norm, normalize, cross, DenseMatrix, DenseVector, eig, eigSym, argmax}
 
-case class AugmentedComplementaryFilter(rawSource1: Source[Acceleration],
-                                        rawSource2: Source[Omega],
-                                        rawSource3: Source[(Position, Attitude)],
-                                        rawSource4: Source[Thrust],
-                                        rawSource5: Source[Omega],
+case class AugmentedComplementaryFilter(rawSource1: Source[(Acceleration, Omega)],
+                                        rawSource2: Source[(Position, Attitude)],
                                         initQ: Quat,
                                         alpha: Real)
-    extends Block5[Acceleration, Omega, (Position, Attitude), Thrust, Omega, (Position, Attitude)] {
+    extends Block2[(Acceleration, Omega), (Position, Attitude), (Position, Attitude)] {
 
   def name = "ACF"
 
-  type State = (Velocity, Position, Attitude, (Position, Time))
+  case class State(a: Acceleration,
+                   v: Velocity,
+                   p: Position,
+                   omega: Timestamped[(Attitude, Omega)],
+                   q: Attitude,
+                   viconP: Timestamped[Position]) {
+    def move(dt: Time) = {
 
-  def acc     = source1
-  def omegaG  = source2
-  def vicon   = source3
-  def thrustC = source4
-  def omegaC  = source5
+      val nv = v + (a * dt)
+      val np = p + (v * dt)
+
+      copy(
+        v = nv,
+        p = np
+      )
+
+    }
 
 
-  def update(x: (Timestamped[Either[((Acceleration, Thrust), Omega), (Position, Attitude)]], Timestamped[State])): State = {
+  }
+
+
+  def imu    = source1
+  def vicon  = source2
+
+  def update(x: (Timestamped[Either[(Acceleration, Omega), (Position, Attitude)]], Timestamped[State])): State = {
     val (Timestamped(t1, e, _), Timestamped(t2, s, _)) = x
 
     val dt = t1 - t2
     //if dt is too small (< epsilon) then dividing by dt to get velocity make no sense
     val epsilon = 0.0001
     e match {
-//      case Left(Left(acc, t)) => (s._1 + (acc * dt), s._2 + (s._1 * dt))
-      case Left(((a, th), om)) =>
-        val localQuat = Quat.localAngleToLocalQuat(om * dt)
-        val nAttGyro = localQuat.rotateBy(s._3)
-        val nAttAcc =
-          Quat.getQuaternion(
-            a - Vec3(0, 0, 1) * th, //Remove thrust from acceleration to retrieve gravity
-            Vec3(0, 0, -1))
-        val cf = nAttGyro * alpha + nAttAcc * (1-alpha)
-        val af = toFixed(a, cf)
-        (s._1 + (af * dt), s._2 + (s._1 * dt), cf, s._4)
+
+      case Left((acc, om)) =>
+        val omDt = (t1 - s.omega.t)
+        val localQuat = Quat.localAngleToLocalQuat(om * omDt)
+        val q = s.omega.v._1
+        val nq = localQuat.rotateBy(q)
+        val accFixed = nq.rotate(acc)
+        s
+          .copy(a = accFixed, q = nq, omega = Timestamped(t1, (nq, om)))
+          .move(dt)
+
       case Right((pos, att)) =>
-        val v = 
+        val velocity =
           if (dt < epsilon)
-            s._1
+            s.v
           else {
-//            println((pos - s._2) / dt, pos - s._2, dt)
-            (pos - s._4._1) / (t1 - s._4._2)
+            //CF between interpolation of vicon position and velocity from deack reckoning
+            s.v  * alpha + ((pos - s.viconP.v) / (t1 - s.viconP.t)) * (1 - alpha)
           }
-        (v, pos, att, (pos, t1))
-      case _ => s
+
+        s.copy(
+          v = velocity,
+          p = pos,
+          omega = Timestamped(t1, (att, s.omega.v._2)),
+          q = att,
+          viconP = Timestamped(t1, pos)
+        )
     }
   }
 
-  def toFixed(x: (Acceleration, Quat)) =
-    x._2.rotate(x._1)
-
-
-  lazy val omega =
-    omegaG
-      .zip(omegaC)
-      .map(x => (x._1 + x._2)/2.0)
-      .bufferWithTime(Vec3())
-
   lazy val upd =
-    acc
-      .zip(thrustC)
-      .zip(omega)
+    imu
       .merge(vicon)
-      .zipT(state)
+      .zipLastT(state)
       .map(update)
 
-  lazy val state: Source[State] = Buffer(upd, (Vec3(), Vec3(), initQ, (Vec3(), 0.0)), source1)
-  lazy val out                  = upd.map(x => (x._2, x._3))
+  lazy val state: Source[State] =
+    Buffer(upd, State(Vec3(), Vec3(), Vec3(), Timestamped((initQ, Vec3())), initQ, Timestamped(Vec3())), source1)
+  lazy val out = upd.map(x => (x.p, x.q))
 
 }

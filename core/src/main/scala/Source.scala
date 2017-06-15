@@ -128,6 +128,9 @@ trait Source[A] extends Node { parent =>
   def map[B](f: A => B, name1: String = ""): Source[B] =
     mapT(lift(f), name1)
 
+  def muted: Source[A] = 
+    filter(_ => false)
+
   def flatMapT[C](f: Timestamped[A] => List[Timestamped[C]],
                   name1: String = ""): Source[C] =
     new Op1[A, C] {

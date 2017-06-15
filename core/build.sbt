@@ -1,17 +1,19 @@
 name := "flow-core"
 
+resolvers += "jzy3d-snapshots" at "http://maven.jzy3d.org/releases"
+
 libraryDependencies ++= Seq(
   "org.scalanlp"  %% "breeze" % "0.13.1"
-  , "org.scalanlp"  %% "breeze-viz" % "0.13.1"
-  , "org.typelevel" %% "spire"  % "0.14.1"
-//  , "com.chuusai" %% "shapeless" % "2.3.2"
+    , "org.scalanlp"  %% "breeze-viz" % "0.13.1"
+    , "org.typelevel" %% "spire"  % "0.14.1"
+    , "org.jzy3d" % "jzy3d-api"  % "1.0.0"
+    , "com.github.mdr" %% "ascii-graphs" % "0.0.6"
+    //  , "com.chuusai" %% "shapeless" % "2.3.2"
 )
 //resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"
 //Need to install locally (clone and sbt publish-local) for now ... https://github.com/mdr/ascii-graphs/
-libraryDependencies += "com.github.mdr" %% "ascii-graphs" % "0.0.6"
 
-resolvers += "jzy3d-snapshots" at "http://maven.jzy3d.org/releases"
-libraryDependencies += "org.jzy3d" % "jzy3d-api"  % "1.0.0"
+
 
 val circeVersion = "0.7.0"
 

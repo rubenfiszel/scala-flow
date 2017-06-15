@@ -14,7 +14,6 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
                           rawSource4: Source[Thrust],
                           rawSource5: Source[Omega],
                           init: Quat,
-                          dt: Timeframe,
                           N: Int,
                           covAcc: MatrixR,
                           covGyro: MatrixR,
@@ -22,7 +21,7 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
                           covViconQ: MatrixR,
                           stdCIThrust: Real,
                           covCIOmega: MatrixR)
-    extends Block5[Acceleration, Omega, (Position, Attitude), Thrust, Omega, Attitude] {
+    extends Block5[Acceleration, Omega, (Position, Attitude), Thrust, Omega, (Position, Attitude)] {
 
   def acceleration = source1
   def bodyRate     = source2
@@ -37,7 +36,7 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   case class State(p: Position, v: Velocity, a: Acceleration)
   case class Particle(w: Weight, q: Attitude, s: State)
 
-  def sampleBR(q: Quat, br: Omega): Quat = {
+  def sampleBR(q: Quat, br: Omega, dt: Time): Quat = {
     val withNoise  = Rand.gaussian(br, covCIOmega)
     val integrated = withNoise * dt
     val lq         = Quat.localAngleToLocalQuat(integrated)
@@ -93,8 +92,8 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   //TODO HANDLE DIFFERENT INITIAL POSSIBLE POSITIONS + resample + accelerometer for attitude + vicon + integrate acceleration
   lazy val particlesGyro: Source[Seq[Particle]] =
     bodyRate
-      .zipLast(buffer)
-      .map(x => x._2.map(b => b.copy(q = sampleBR(b.q, x._1))), "Sample")
+      .zipLastT(buffer)
+      .map(x => x._2.v.map(b => b.copy(q = sampleBR(b.q, x._1.v, x._1.t - x._2.t ))), "Sample")
 
   lazy val particlesAcc =
     acceleration
@@ -112,9 +111,10 @@ case class ParticleFilter(rawSource1: Source[Acceleration],
   lazy val buffer: Source[Seq[Particle]] =
     Buffer(fused, Seq.fill(N)(Particle(1.0 / N, init, State(Vec3(), Vec3(), Vec3()))), source1)
 
-  lazy val out: Source[Quat] =
+  lazy val out: Source[(Position, Quat)] =
+    vicon.map(_._1).zip(
     fused
       .map(_.map(x => (x.w, x.q)), "toW-Q")
-      .map(averageQuaternions, "average")
+      .map(averageQuaternions, "average"))
 
 }

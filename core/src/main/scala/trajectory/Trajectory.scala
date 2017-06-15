@@ -59,25 +59,10 @@ trait Trajectory extends Model {
     )
   }
 
-  //avoid end of trajectory sampling annoyance
-  //by "replaying" the last possible sample
-  def lastPossibleDelta(t: Time, dt: Timestep) =
-    if ((t + dt) >= tf)
-      tf - 1.1 * dt
-    else
-      t
-
-  def getQuaternionRotation(t: Time, dt: Timestep) = {
-    val rt = lastPossibleDelta(t, dt)
-    getOrientationQuaternion(rt + dt)
-      .rotateBy(getOrientationQuaternion(rt).reciprocal)
-  }
 
   def getOmega(t: Time, dt: Timestep): Vec3 = {
-
-    val rt = lastPossibleDelta(t, dt)
-    Quat.quatToAxisAngle(getOrientationQuaternion(rt),
-      getOrientationQuaternion(rt + dt)) / dt
+    Quat.quatToAxisAngle(getOrientationQuaternion(Math.max(0, t-dt)),
+      getOrientationQuaternion(t)) / dt
   }
 
   def getPoint(t: Time, dt: Timestep = 1e-3): TrajectoryPoint =

@@ -10,14 +10,14 @@ object DroneParticle extends FlowApp[Trajectory] {
 
   val dtIMU   = 0.001
   val dtCI    = dtIMU
-  val dtVicon = (dtIMU * 50)+0.0009
+  val dtVicon = (dtIMU * 500)
 
-  val covScale = 0.1
+  val covScale = 10.0
   //filter parameter
   val covAcc    = DenseMatrix.eye[Real](3) * (0.1 * covScale)
   val covGyro   = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covViconP = DenseMatrix.eye[Real](3) * (0.0001 * covScale)
-  val covViconQ = DenseMatrix.eye[Real](3) * (0.0001 * covScale)
+  val covViconP = DenseMatrix.eye[Real](3) * (0.000001 * covScale)
+  val covViconQ = DenseMatrix.eye[Real](3) * (0.000001 * covScale)
 
   val stdCIThrust = 0.1 * covScale
   val covCIOmega  = DenseMatrix.eye[Real](3) * (0.1 * covScale)
@@ -27,14 +27,13 @@ object DroneParticle extends FlowApp[Trajectory] {
   val initQ = Quaternion(1.0, 0, 0, 0)
 
   val clockIMU   = new TrajectoryClock(dtIMU)
-  val clockCI    = new TrajectoryClock(dtCI)
+  val clockCI    = new TrajectoryClock(dtCI).latency(dtIMU/100.0)
   val clockVicon = new TrajectoryClock(dtVicon)
  
 
   val points = clockIMU.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
 
-  val accelerometer      = clockIMU.map(Accelerometer(covAcc)) //.latency(dt / 2)
-  val gyroscope          = clockIMU.map(Gyroscope(covGyro, dtIMU))
+  val imu      = IMU(clockIMU, covAcc, covGyro, dtIMU)
   val controlInputThrust = clockCI.map(ControlInputThrust(stdCIThrust, dtCI))
   val controlInputOmega  = clockCI.map(ControlInputOmega(covCIOmega, dtCI))
   val vicon              = clockVicon.map(Vicon(covViconP, covViconQ))
@@ -44,28 +43,24 @@ object DroneParticle extends FlowApp[Trajectory] {
   Plot2(batch, accelerometer)
    */
 
-  val cfilter =
+//  /*
+  val filter =
     AugmentedComplementaryFilter(
-      accelerometer,
-      gyroscope,
+      imu,
       vicon,
-      controlInputThrust,
-      controlInputOmega,
       initQ,
-      0.98
+      0.95
     )
+//   */
 
-
-
-  /*
-  val pfilter =
+ /*  
+  val filter =
     ParticleFilter(accelerometer,
                    gyroscope,
                    vicon,
                    controlInputThrust,
                    controlInputOmega,
                    initQ,
-                   dt,
                    numberParticles,
                    covAcc,
                    covGyro,
@@ -73,7 +68,7 @@ object DroneParticle extends FlowApp[Trajectory] {
                    covViconQ,
                    stdCIThrust,
                    covCIOmega)
-   */
+*/   
   val pqs =
     points
       .map(x => (x.p, x.q), "toPandQ")
@@ -83,11 +78,11 @@ object DroneParticle extends FlowApp[Trajectory] {
   }
 
   def figure() = {
-    Plot2(cfilter, pqs)
+    Plot2(filter, pqs)
   }
 
   def testTS() = {
-    TestTS(cfilter, pqs, 1000)
+    TestTS(filter, pqs, 1000)
   }
 
   val traj = TrajFactory.generate()

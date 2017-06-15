@@ -45,12 +45,9 @@ case class OrientationComplementaryFilter(
       .map(attitudeAcc, "ACC2Quat")
 
 
-  lazy val omegaBuffered =
-    omegaG
-      .bufferWithTime(Vec3())
 
   lazy val bodyRateInteg: Source[Vec3] =
-    omegaBuffered
+    omegaG
       .zipT(buffer)
       .map(x => x._1.v*(x._1.t - x._2.t), "Integ")
 
