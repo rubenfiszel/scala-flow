@@ -23,7 +23,7 @@ object Quat {
   }
 
   //http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
-  def quatToAxisAngle(qstart: Quaternion[Real], qend: Quaternion[Real]) = {
+  def quatToAxisAngle(qstart: Quat, qend: Quat) = {
     val q = qstart.reciprocal * qend
     val v = Vec3(q.i, q.j, q.k)
     //floating point error seems to give q.r > 1 sometimes which fail acos
@@ -31,15 +31,22 @@ object Quat {
     normalize(v) * angle
   }
 
+  def quatToAngle(q: Quat): Vec3 = {
+    val n = acos(q.r)*2
+    val s = n/sin(n/2)
+    Vec3(q.i*s, q.j*s, q.k*s) 
+  }
+
+
   //https://www.astro.rug.nl/software/kapteyn/_downloads/attitude.pdf page 19
-  def bodyRateToGlobalQuat(q: Quaternion[Real],
-                           omega: Vec3): Quaternion[Real] = {
+  def bodyRateToGlobalQuat(q: Quat,
+                           omega: Vec3): Quat = {
     val omegaQ = Quaternion(0.0, omega.x, omega.y, omega.z) * (1.0 / 2)
     q * omegaQ
   }
 
   
-  def localAngleToLocalQuat(angle: Vec3): Quaternion[Real] = {
+  def localAngleToLocalQuat(angle: Vec3): Quat = {
     val l = norm(angle) / 2
     val nrot = normalize(angle) * sin(l)
     Quaternion(cos(l), nrot.x, nrot.y, nrot.z)

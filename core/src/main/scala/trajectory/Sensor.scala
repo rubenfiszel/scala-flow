@@ -19,19 +19,38 @@ case class Gyroscope(cov: MatrixR, dt: Timestep)(implicit val modelHook: ModelHo
 
 }
 
-case class Vicon(covP: MatrixR, covQ: MatrixR)(implicit val modelHook: ModelHook[Trajectory])
-    extends Sensor[(Position, Quat), Trajectory] {
+case class PositionSensor(cov: MatrixR)(implicit val modelHook: ModelHook[Trajectory])
+    extends VectorSensor[Trajectory] {
+
+  def genVector(traj: Trajectory, t: Time) =
+    traj.getPosition(t)
+    
+}
+
+case class AttitudeSensor(cov: MatrixR)(implicit val modelHook: ModelHook[Trajectory])
+    extends Sensor[Quat, Trajectory] {
 
   def generate(traj: Trajectory, t: Time) =
-    (Rand.gaussian(traj.getPosition(t), covP), Quat.genQuaternion(traj.getOrientationQuaternion(t), covQ))
+    Quat.genQuaternion(traj.getOrientationQuaternion(t), cov)
 
 }
 
-case class ControlInputThrust(std: Real, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
+
+case class Altimeter(variance: Real)(implicit val modelHook: ModelHook[Trajectory])
+    extends Sensor[Real, Trajectory] {
+
+  def generate(traj: Trajectory, t: Time) =
+    Rand.gaussian(traj.getPosition(t).z, variance)
+
+}
+
+
+
+case class ControlInputThrust(variance: Real, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
     extends Sensor[Thrust, Trajectory] {
 
   def generate(traj: Trajectory, t: Time) =
-    Rand.gaussian(traj.getThrust(t), std)
+    Rand.gaussian(traj.getThrust(t), variance)
 
 }
 
@@ -51,7 +70,20 @@ case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M]) extend
 }
 
 object IMU {
-  def apply(acc: Accelerometer, gyro: Gyroscope) = Sensor2(acc, gyro)
-  def apply(source: Source[Time], covAcc: MatrixR, covGyro: MatrixR, dtGyro: Time)(implicit mh: ModelHook[Trajectory]): Source[(Acceleration, Omega)] =
-    source.map(Sensor2(Accelerometer(covAcc), Gyroscope(covGyro, dtGyro)))
+  def apply(covAcc: MatrixR, covGyro: MatrixR, dtGyro: Time)(implicit mh: ModelHook[Trajectory]) =
+    Sensor2(Accelerometer(covAcc), Gyroscope(covGyro, dtGyro))
+}
+
+object GPS {
+
+  def apply(cov: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
+    PositionSensor(cov)
+
+}
+
+object Vicon {
+
+  def apply(covP: MatrixR, covQ: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
+    Sensor2(PositionSensor(covP), AttitudeSensor(covQ))
+
 }
