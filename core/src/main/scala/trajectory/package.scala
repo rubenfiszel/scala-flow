@@ -31,6 +31,10 @@ package object trajectory {
     def toDenseVector =
       DenseVector(q.r, q.i, q.j, q.k)
 
+    //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+    def getPitch =
+      asin(2*(q.r*q.j - q.k*q.i))
+
   }
 
 }

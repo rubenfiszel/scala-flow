@@ -32,6 +32,7 @@ package object flow {
   type Thrust       = Real
   type Omega        = Vec3
   type Attitude     = Quat
+  type AltitudeRay  = Real
   type ControlInput = (Thrust, Omega)
 
   type VectorR = DenseVector[Real]

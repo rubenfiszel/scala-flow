@@ -4,158 +4,50 @@ import dawn.flow._
 
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
-import spire.algebra.Field
-import breeze.linalg.{norm, normalize, cross, DenseMatrix, DenseVector, eig, eigSym, argmax, inv}
+import breeze.linalg._
 
-//https://ai2-s2-pdfs.s3.amazonaws.com/0322/8afc107f925b7a0ca77d5ade2fda9050f0a3.pdf
-case class ParticleFilter(rawSource1: Source[(Acceleration, Omega)],
-                          rawSource2: Source[(Position, Attitude)],
-                          init: Quat,
-                          N: Int,
-                          covAcc: MatrixR,
-                          covGyro: MatrixR,
-                          covViconP: MatrixR,
-                          covViconQ: MatrixR)
-    extends Block2[(Acceleration, Omega), (Position, Attitude), (Position, Attitude)] {
+trait ParticleFilter {
 
-  def imu   = source1
-  def vicon = source2
-
-  def name = "ParticleFilter"
+  def N: Int
+  def covGyro: MatrixR
 
   type Weight = Real
 
-  object State {
-    val Hv = {
-      val id = DenseMatrix.eye[Real](3)
-      val m = DenseMatrix.zeros[Real](3, 6)
-      m(::,3 to 5) := id
-      m
-    }
-    val Rv = covViconP
+  type State <: {
+    def x: MatrixR
+    def cov: MatrixR
 
+    def p: Position
+
+    def Q(dt: Time): MatrixR
+    def F(dt: Time): MatrixR
+
+    def predict(a: Acceleration, dt: Time): State    
   }
 
-  case class State(x: MatrixR, cov: MatrixR) {
-
-    def v = x(0 to 2, 0).toDenseVector
-    def p = x(3 to 5, 0).toDenseVector
-
-    def Q(dt: Time) = {
-      val m = DenseMatrix.zeros[Real](6, 6)
-      m(0 to 2, 0 to 2) := covViconP*(dt**2)
-      m
-    }
-
-    def F(dt: Time) = {
-      val m = DenseMatrix.eye[Real](6)
-      m(3, 0) = dt
-      m(4, 1) = dt
-      m(5, 2) = dt
-      m
-    }
-
-    def predict(a: Acceleration, dt: Time) = {
-
-      val u = DenseMatrix.zeros[Real](6, 1)
-      u(0 to 2, 0) := a*dt
-
-      val (nx, ncov) = KalmanFilter.predict(x, cov, F(dt), u, Q(dt))
-
-      copy(
-        x = nx,
-        cov = ncov
-      )
-    }
-
-    def update(pos: Position) = {
-
-      val (nx, ncov) = KalmanFilter.update(x, cov, pos.toDenseMatrix.t, State.Hv, State.Rv)
-
-      copy(
-        x = nx,
-        cov = ncov
-      )
-    }
-  }
   case class Particle(w: Weight, q: Attitude, s: State, lastA: Acceleration)
   case class Particles(sp: Seq[Particle], lastO: Omega)
+  
+  type Combined
 
-  def sampleAtt(q: Quat, br: Omega, dt: Time): Quat = {
-    val withNoise  = Rand.gaussian(br, covGyro)
+  def update(x: (Timestamped[Combined], Timestamped[Particles])): Particles 
+
+  def updateAttitude(ps: Particles, dt: Time) =
+    ps.copy(sp = ps.sp.map(x => x.copy(q = sampleAtt(x.q, ps.lastO, dt))))
+
+  def updateAcceleration(ps: Particles, acc: Acceleration) =
+    ps.copy(sp = ps.sp.map(x => x.copy(lastA = x.q.rotate(acc))))
+
+  def kalmanPredict(ps: Particles, dt: Time) =
+    ps.copy(sp = ps.sp.map(x => x.copy(s = x.s.predict(x.lastA, dt))))
+  
+  def sampleAtt(q: Quat, om: Omega, dt: Time): Quat = {
+    val withNoise  = Rand.gaussian(om, covGyro)
     val integrated = withNoise * dt
     val lq         = Quat.localAngleToLocalQuat(integrated)
     lq.rotateBy(q)
   }
-
-  def sampleAcc(acc: Acceleration): Acceleration = {
-    Rand.gaussian(acc, covAcc)
-  }
-
-  def updateAttitude(ps: Particles, dt: Time) =
-    ps.copy(sp = ps.sp.map(x =>
-      x.copy(q = sampleAtt(x.q, ps.lastO, dt))
-    ))
-
-  def updateAcceleration(ps: Particles, acc: Acceleration) = 
-    ps.copy(sp = ps.sp.map(x => x.copy(lastA = 
-      x.q.rotate(acc)
-    )))
-
-  def kalmanPredict(ps: Particles, dt: Time) =
-    ps.copy(sp = ps.sp.map(x => x.copy(s = 
-      x.s.predict(x.lastA, dt)
-    )))
-
-  def kalmanUpdate(ps: Particles, pos: Position) =
-    ps.copy(sp = ps.sp.map(x => x.copy(s = 
-      x.s.update(pos)
-    )))
   
-  def updateWeightPosAtt(ps: Particles, pos: Position, att: Attitude) =
-    ps.copy(
-      sp = ps.sp.map(x => x.copy(w =
-        x.w + posLogLikelihood(x.s.p, pos) + attLogLikelihood(x.q, att)
-      )))
-
-
-  def update(
-      x: (Timestamped[Either[(Acceleration, Omega), (Position, Attitude)]], Timestamped[Particles])): Particles = {
-    val (Timestamped(t1, e, _), Timestamped(t2, ps, _)) = x
-
-    val dt = t1 - t2
-
-    e match {
-      case Left((acc, om)) =>
-
-        val psO = ps.copy(
-          lastO = om
-        )
-        val psUA = updateAttitude(psO, dt)
-        val psA = updateAcceleration(psUA, acc)
-        kalmanPredict(psA, dt)
-       
-
-      case Right((pos, att)) =>
-        val psQ = updateAttitude(ps, dt)        
-        val psS = kalmanPredict(psQ, dt)
-        val psSP = kalmanUpdate(psS, pos)
-        updateWeightPosAtt(psSP, pos, att)
-
-
-    }
-  }
-
-  def posLogLikelihood(state: Position, measurement: Position) = {
-    Rand.gaussianLogPdf(measurement, state, covViconP)
-  }
-
-  def attLogLikelihood(state: Attitude, measurement: Attitude) = {
-    val error = measurement.rotateBy(state.reciprocal)
-    val rad   = Quat.quatToAngle(error)
-    Rand.gaussianLogPdf(rad, Vec3(), covViconQ)
-  }
-
   //http://timvieira.github.io/blog/post/2014/02/11/exp-normalize-trick/
   def normWeights(ps: Particles) = {
     val ws  = ps.sp.map(_.w)
@@ -166,11 +58,6 @@ case class ParticleFilter(rawSource1: Source[(Acceleration, Omega)],
     )
   }
 
-  def tooLowEffective(ps: Particles) = {
-    val effective = ps.sp.count(_.w > log(1.0 / N))
-    val ratio     = (effective / N.toDouble)
-    ratio <= 0.1
-  }
   //http://users.isy.liu.se/rt/schon/Publications/HolSG2006.pdf
   //See systematic resampling
   def resample(ps: Particles) = {
@@ -191,6 +78,21 @@ case class ParticleFilter(rawSource1: Source[(Acceleration, Omega)],
       ps.copy(sp = ps.sp.zip(ns).flatMap(x => List.fill(x._2)(x._1)).map(_.copy(w = log(1.0 / N))))
     } else
       ps
+  }
+  
+
+  def tooLowEffective(ps: Particles) = {
+    val effective = ps.sp.count(_.w > log(1.0 / N))
+    val ratio     = (effective / N.toDouble)
+    ratio <= 0.1
+  }
+  
+  def averagePosition(ps: Particles): Position = {
+    var r = Vec3()
+    ps.sp
+      .map(x => x.s.p * exp(x.w))
+      .foreach(x => r += x)
+    r
   }
 
   //https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions
@@ -222,17 +124,40 @@ case class ParticleFilter(rawSource1: Source[(Acceleration, Omega)],
       .normalized
   }
 
-  def averagePosition(ps: Particles): Position = {
-    var r = Vec3()
-    ps.sp
-      .map(x => x.s.p * exp(x.w))
-      .foreach(x => r += x)
-    r
+  def updateFromIMU(ps: Particles, acc: Acceleration, om: Omega, dt: Time) = {
+        val psO = ps.copy(
+          lastO = om
+        )
+        val psUA = updateAttitude(psO, dt)
+        val psA  = updateAcceleration(psUA, acc)
+        kalmanPredict(psA, dt)
   }
 
-  lazy val fused =
-    imu
-      .merge(vicon)
+  def updateWeightPos(ps: Particles, pos: Position, cov: MatrixR) =
+    ps.copy(
+      sp = ps.sp.map(x =>
+        x.copy(w =
+          x.w + posLogLikelihood(x.s.p, pos, cov))))
+
+  def updateWeightAtt(ps: Particles, att: Attitude, cov: MatrixR) =
+    ps.copy(
+      sp = ps.sp.map(x =>
+        x.copy(w =
+          x.w + attLogLikelihood(x.q, att, cov))))
+
+  def posLogLikelihood(state: Position, measurement: Position, cov: MatrixR) = {
+    Rand.gaussianLogPdf(measurement, state, cov)
+  }
+
+  def attLogLikelihood(state: Attitude, measurement: Attitude, cov: MatrixR) = {
+    val error = measurement.rotateBy(state.reciprocal)
+    val rad   = Quat.quatToAngle(error)
+    Rand.gaussianLogPdf(rad, Vec3(), cov)
+  }
+        
+        
+
+  def fused: Source[Combined]
 
   lazy val process: Source[Particles] =
     fused
@@ -241,10 +166,7 @@ case class ParticleFilter(rawSource1: Source[(Acceleration, Omega)],
       .map(normWeights)
       .map(resample, "Resample")
 
-  lazy val buffer: Source[Particles] = {
-    val initP = Particle(log(1.0 / N), init, State(DenseMatrix.zeros[Real](6, 1), DenseMatrix.eye[Real](6) * 0.001), Vec3())
-    Buffer(process, Particles(Seq.fill(N)(initP), Vec3()), source1)
-  }
+  def buffer: Source[Particles]
 
   lazy val out: Source[(Position, Quat)] =
     process
@@ -254,5 +176,5 @@ case class ParticleFilter(rawSource1: Source[(Acceleration, Omega)],
                averageQuaternions(x)
            ),
            "average")
-
+  
 }

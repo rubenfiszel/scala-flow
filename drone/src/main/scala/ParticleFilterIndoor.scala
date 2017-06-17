@@ -4,7 +4,7 @@ import dawn.flow._
 import breeze.linalg._
 import spire.math.Quaternion
 
-object DroneParticle extends FlowApp[Trajectory] {
+object ParticleFilterIndoor extends FlowApp[Trajectory] {
 
   //****** Model ******
 
@@ -65,7 +65,7 @@ object DroneParticle extends FlowApp[Trajectory] {
         0.95
       )
     else
-      ParticleFilter(
+      ParticleFilterVicon(
         imu,
         vicon,
         initQ,

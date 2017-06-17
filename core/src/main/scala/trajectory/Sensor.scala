@@ -2,6 +2,8 @@ package dawn.flow.trajectory
 
 import dawn.flow._
 import breeze.linalg._
+import spire.math.{Real => _, _ => _}
+import spire.implicits._
 
 case class Accelerometer(cov: MatrixR)(implicit val modelHook: ModelHook[Trajectory])
     extends VectorSensor[Trajectory] {
@@ -24,7 +26,7 @@ case class PositionSensor(cov: MatrixR)(implicit val modelHook: ModelHook[Trajec
 
   def genVector(traj: Trajectory, t: Time) =
     traj.getPosition(t)
-    
+
 }
 
 case class AttitudeSensor(cov: MatrixR)(implicit val modelHook: ModelHook[Trajectory])
@@ -35,16 +37,39 @@ case class AttitudeSensor(cov: MatrixR)(implicit val modelHook: ModelHook[Trajec
 
 }
 
-
 case class Altimeter(variance: Real)(implicit val modelHook: ModelHook[Trajectory])
-    extends Sensor[Real, Trajectory] {
+    extends Sensor[AltitudeRay, Trajectory] {
 
-  def generate(traj: Trajectory, t: Time) =
-    Rand.gaussian(traj.getPosition(t).z, variance)
+  def generate(traj: Trajectory, t: Time) = {
+    val q = traj.getOrientationQuaternion(t)
+    val p = q.getPitch
+    val d = traj.getPosition(t).z * cos(p)
+    Rand.gaussian(d, variance)
+  }
 
 }
 
+//We make a simplification
+//An OF returns a measurement of the difference of Position and angle (as a local Quat)
+case class OpticalFlow(covDP: MatrixR, covDQ: MatrixR, dt: Time)(implicit val modelHook: ModelHook[Trajectory])
+    extends Sensor[(Position, Quat), Trajectory] {
 
+  def generate(traj: Trajectory, t: Time) = {
+    val p  = traj.getPosition(t)
+    val pm = traj.getPosition(t - dt)
+
+    val dp = p - pm
+    val rp = Rand.gaussian(dp, covDP)
+
+    val q  = traj.getOrientationQuaternion(t)
+    val qm = traj.getOrientationQuaternion(t - dt)
+
+    val dq = qm.reciprocal * q
+    val rq = Quat.genQuaternion(dq, covDQ)
+
+    (rp, rq)
+  }
+}
 
 case class ControlInputThrust(variance: Real, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
     extends Sensor[Thrust, Trajectory] {
@@ -74,10 +99,18 @@ object IMU {
     Sensor2(Accelerometer(covAcc), Gyroscope(covGyro, dtGyro))
 }
 
+
 object GPS {
 
   def apply(cov: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
     PositionSensor(cov)
+
+}
+
+object Magnetometer {
+
+  def apply(cov: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
+    AttitudeSensor(cov)
 
 }
 
