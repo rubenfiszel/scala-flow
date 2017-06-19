@@ -8,9 +8,9 @@ import breeze.linalg.{norm, normalize, cross, DenseMatrix, DenseVector, eig, eig
 
 case class AugmentedComplementaryFilter(rawSource1: Source[(Acceleration, Omega)],
                                         rawSource2: Source[(Position, Attitude)],
-                                        initQ: Quat,
-                                        alpha: Real)
-    extends Block2[(Acceleration, Omega), (Position, Attitude), (Position, Attitude)] {
+                                        alpha: Real)(implicit val initHook: InitHook[TrajInit])
+    extends Block2[(Acceleration, Omega), (Position, Attitude), (Position, Attitude)]
+    with RequireInit[TrajInit] {
 
   def name = "ACF"
 
@@ -72,7 +72,7 @@ case class AugmentedComplementaryFilter(rawSource1: Source[(Acceleration, Omega)
       .map(update)
 
   lazy val state: Source[State] =
-    Buffer(upd, State(Vec3(), Vec3(), initQ, Timestamped(Vec3())), source1)
+    Buffer(upd, State(init.v, init.p, init.q, Timestamped(Vec3())), source1)
   lazy val out = upd.map(x => (x.p, x.q))
 
 }

@@ -43,6 +43,7 @@ package object flow {
 
   type ListT[A] = List[Timestamped[A]]
 
+  def eye(n: Int) = DenseMatrix.eye[Real](n)
   //Less Timestamped boilerplate
 
   implicit object PrimarySchedulerHook extends SchedulerHook
@@ -52,21 +53,21 @@ package object flow {
   //******* Data (as in transformable in array of Real **********
 
   implicit object RealData extends Data[Real] {
-    def toValues(x: Real) = Seq(x)
+    def toVector(x: Real) = DenseVector(x)
   }
 
   implicit object denseVectorRealData extends Data[DenseVector[Real]] {
-    def toValues(x: DenseVector[Real]) = x.toArray.toSeq
+    def toVector(x: DenseVector[Real]) = x
   }
 
   implicit object QuaternionData extends Data[Quat] {
-    def toValues(x: Quaternion[Real]) = Seq(x.r, x.i, x.j, x.k)
+    def toVector(x: Quaternion[Real]) = DenseVector(x.r, x.i, x.j, x.k)
   }
 
   implicit def pairData[A: Data, B: Data] = new Data[(A, B)] {
     val aData               = implicitly[Data[A]]
     val bData               = implicitly[Data[B]]
-    def toValues(x: (A, B)) = aData.toValues(x._1) ++ bData.toValues(x._2)
+    def toVector(x: (A, B)) = DenseVector.vertcat(aData.toVector(x._1), bData.toVector(x._2))
   }
 
   //****** Source to specific Ops Source
@@ -74,6 +75,9 @@ package object flow {
   implicit def toTimeSource(s: Source[Time]): TimeSource =
     new TimeSource(s)
 
+  implicit def toDataSource[A: Data](s: Source[A]): DataSource[A] =
+    new DataSource(s)
+    
   implicit def toStreamSource[A](s: Source[Stream[A]]): StreamSource[A] =
     new StreamSource(s)
 
@@ -156,6 +160,7 @@ package object flow {
       DenseVector(gs(0), gs(1), gs(2))
     }
   }
+
 
   implicit val encodeQuat: Encoder[Quat] = deriveEncoder
   implicit val decodeQuat: Decoder[Quat] = deriveDecoder

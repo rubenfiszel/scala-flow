@@ -4,45 +4,36 @@ import dawn.flow._
 import breeze.linalg._
 import spire.math.Quaternion
 
-object ParticleFilterOutdoor extends FlowApp[Trajectory] {
+object ParticleFilterOutdoor extends FlowApp[Trajectory, TrajInit] {
 
   //****** Model ******
 
-  val dtIMU  = 0.001
+  val dtIMU  = 0.05
   val dtAlt  = (dtIMU * 10) + dtIMU * 2
   val dtGPS1 = (dtIMU * 500) + dtIMU * 10
   val dtGPS2 = (dtIMU * 500) + dtIMU * 310
 
-  val covScale = 10.0
+  val covScale = 0.1
   //filter parameter
-  val covAcc  = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covGyro = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covMag = DenseMatrix.eye[Real](3) * (0.1 * covScale)  
-  val varAlt  = 0.1 * covScale
-  val covGPS1 = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covGPS2 = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-
-  val numberParticles = 200
-
-  val initQ = Quaternion(1.0, 0, 0, 0)
+  val covAcc  = 1.0 * covScale
+  val covGyro = 1.0 * covScale
+  val covMag  = 1.0 * covScale
+  val varAlt  = 1.0 * covScale
+  val covGPS1 = 0.1 * covScale
+  val covGPS2 = 0.1 * covScale
 
   val clockIMU  = new TrajectoryClock(dtIMU)
   val clockAlt  = new TrajectoryClock(dtAlt)
   val clockGPS1 = new TrajectoryClock(dtGPS1)
   val clockGPS2 = new TrajectoryClock(dtGPS2)
 
-  val points = clockIMU.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
+  val imu  = clockIMU.map(IMU(eye(3) * covAcc, eye(3) * covGyro, dtIMU))
+  val mag  = clockIMU.map(Magnetometer(eye(3) * covMag))
+  val gps1 = clockGPS1.map(GPS(eye(3) * covGPS1))
+  val gps2 = clockGPS2.map(GPS(eye(3) * covGPS2))
+  val alt  = clockAlt.map(Altimeter(varAlt))
 
-  val imu  = clockIMU.map(IMU(covAcc, covGyro, dtIMU))
-  val mag = clockIMU.map(Magnetometer(covMag))
-  val gps1 = clockGPS1.map(GPS(covGPS1))
-  val gps2 = clockGPS2.map(GPS(covGPS2))
-  val alt  = clockAlt.map(Altimeter(varAlt))  
-
-  /* batch example
-  val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
-  Plot2(batch, accelerometer)
-   */
+  val numberParticles = 200
 
   val filter = ParticleFilterMag2GPSAlt(
     imu,
@@ -50,7 +41,6 @@ object ParticleFilterOutdoor extends FlowApp[Trajectory] {
     gps1,
     gps2,
     alt,
-    initQ,
     numberParticles,
     covAcc,
     covGyro,
@@ -60,31 +50,39 @@ object ParticleFilterOutdoor extends FlowApp[Trajectory] {
     varAlt
   )
 
-  val pqs =
-    points
-      .map(x => (x.p, x.q), "toPandQ")
-
-  def awt() = {
-    new Jzy3dVisualisation(points, traj.getKeypoints)
-  }
+  val testLog = new TestLogger()
 
   def figure() = {
+    val points = clockIMU.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
+    val pqs =
+      points
+        .map(x => (x.p, x.q), "toPandQ")
+
     Plot2(filter, pqs)
   }
 
   def testTS() = {
-    TestTS(filter, pqs, 1000)
-  }
+    val toDist = filter.mapT(
+      LambdaWithModel((ts: Timestamped[(Position, Quat)], traj: Trajectory) =>
+        (norm(traj.getPosition(ts.t) - ts.v._1), Quat.distance(traj.getOrientationQuaternion(ts.t), ts.v._2))),
+      "DistanceToLabel"
+    )
 
-  val traj = TrajFactory.generate()
+    val labeled = toDist.labelData(_ => (0.0, 0.0))
+    TestTS(labeled, Some(testLog))
+  }
 
   figure()
   testTS()
-//  awt()
-//  filter.println
 
-  run(traj)
-  //  drawExpandedGraph()
+  val trajs = TrajFactory.generate(1)
+  trajs.foreach(traj => {
+    run(traj, traj.trajInit)
+  })
+
+  testLog.printAll()
+  testLog.printMean()
+
   System.exit(0)
 
 }

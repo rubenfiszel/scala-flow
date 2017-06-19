@@ -252,6 +252,8 @@ case class QuadTrajectory(init: Init,
     }
   }
 
+  def initQ = getOrientationQuaternion(0.0)
+
   lazy val tf =
     keypoints.map(_._2).sum
 

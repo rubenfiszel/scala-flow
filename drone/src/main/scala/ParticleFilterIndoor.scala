@@ -4,103 +4,100 @@ import dawn.flow._
 import breeze.linalg._
 import spire.math.Quaternion
 
-object ParticleFilterIndoor extends FlowApp[Trajectory] {
+object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
 
   //****** Model ******
 
-  val dtIMU   = 0.001
-  val dtCI    = dtIMU
-  val dtVicon = (dtIMU * 500)
-//  val dtAlt   = (dtIMU * 10) + dtIMU * 2
-//  val dtGPS1  = (dtIMU * 500) + dtIMU * 10
-//  val dtGPS2  = (dtIMU * 500) + dtIMU * 310
+  val dtIMU   = 0.005
+  val dtVicon = (dtIMU * 50)
 
-  val covScale = 10.0
+  val covScale = 0.8
   //filter parameter
-  val covAcc    = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covGyro   = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-  val covViconP = DenseMatrix.eye[Real](3) * (0.001 * covScale)
-  val covViconQ = DenseMatrix.eye[Real](3) * (0.001 * covScale)
-//  val varAlt    = 0.1 * covScale
-//  val covGPS1   = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-//  val covGPS2   = DenseMatrix.eye[Real](3) * (0.1 * covScale)
+  val covAcc    = 1.0 * covScale
+  val covGyro   = 1.0 * covScale
+  val covViconP = 0.1 * covScale
+  val covViconQ = 0.1 * covScale
 
-//  val varianceCIThrust = 0.1 * covScale
-//  val covCIOmega  = DenseMatrix.eye[Real](3) * (0.1 * covScale)
-
-  val numberParticles = 200
-
-  val initQ = Quaternion(1.0, 0, 0, 0)
+  val numberParticles = 1200
 
   val clockIMU   = new TrajectoryClock(dtIMU)
-  val clockCI    = new TrajectoryClock(dtCI).latency(dtIMU / 100.0)
   val clockVicon = new TrajectoryClock(dtVicon)
-//  val clockAlt   = new TrajectoryClock(dtAlt)
-//  val clockGPS1  = new TrajectoryClock(dtGPS1)
-//  val clockGPS2  = new TrajectoryClock(dtGPS2)
 
-  val points = clockIMU.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
-
-  val imu   = clockIMU.map(IMU(covAcc, covGyro, dtIMU))
-  val vicon = clockVicon.map(Vicon(covViconP, covViconQ))
-//  val alt   = clockAlt.map(Altimeter(varAlt))
-//  val gps1  = clockGPS1.map(GPS(covGPS1))
-//  val gps2  = clockGPS2.map(GPS(covGPS2))
-//  val controlInputThrust = clockCI.map(ControlInputThrust(varianceCIThrust, dtCI))
-//  val controlInputOmega  = clockCI.map(ControlInputOmega(covCIOmega, dtCI))
+  val imu   = clockIMU.map(IMU(eye(3) * covAcc, eye(3) * covGyro, dtIMU))
+  val vicon = clockVicon.map(Vicon(eye(3) * covViconP, eye(3) * covViconQ))
 
   /* batch example
   val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
   Plot2(batch, accelerometer)
    */
 
-  val particleFilter = true
+  val filterN = 2
 
-  val filter =
-    if (!particleFilter)
+  val filter = filterN match {
+    case 0 =>
       AugmentedComplementaryFilter(
         imu,
         vicon,
-        initQ,
         0.95
       )
-    else
+    case 1 =>
       ParticleFilterVicon(
         imu,
         vicon,
-        initQ,
         numberParticles,
         covAcc,
         covGyro,
         covViconP,
         covViconQ
       )
-
-  val pqs =
-    points
-      .map(x => (x.p, x.q), "toPandQ")
-
-  def awt() = {
-    new Jzy3dVisualisation(points, traj.getKeypoints)
+    case 2 =>
+      EKFVicon(
+        imu,
+        vicon,
+        numberParticles,
+        covAcc,
+        covGyro,
+        covViconP,
+        covViconQ
+      )
   }
 
+  val testLog = new TestLogger()
+
+
   def figure() = {
+    val points = clockIMU.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
+
+    val pqs =
+      points.map(x => (x.p, x.q), "toPandQ")
+
     Plot2(filter, pqs)
   }
 
   def testTS() = {
-    TestTS(filter, pqs, 1000)
-  }
+    val toDist = filter.mapT(
+      LambdaWithModel((ts: Timestamped[(Position, Quat)], traj: Trajectory) =>
+        (norm(traj.getPosition(ts.t) - ts.v._1), Quat.distance(traj.getOrientationQuaternion(ts.t), ts.v._2))),
+      "DistanceToLabel"
+    )
 
-  val traj = TrajFactory.generate()
+    val labeled = toDist.labelData(_ => (0.0, 0.0))
+    TestTS(labeled, Some(testLog))
+  }
 
   figure()
   testTS()
-//  awt()
 //  filter.println
 
-  run(traj)
-  //  drawExpandedGraph()
+//  drawExpandedGraph()
+  val trajs = TrajFactory.generate(1)
+  trajs.foreach(traj => {
+    run(traj, traj.trajInit)
+  })
+
+  testLog.printAll()
+  testLog.printMean()
+
   System.exit(0)
 
 }

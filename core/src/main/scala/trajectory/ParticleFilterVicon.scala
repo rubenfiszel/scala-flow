@@ -9,13 +9,13 @@ import breeze.linalg._
 //https://ai2-s2-pdfs.s3.amazonaws.com/0322/8afc107f925b7a0ca77d5ade2fda9050f0a3.pdf
 case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
                                rawSource2: Source[(Position, Attitude)],
-                               init: Quat,
                                N: Int,
-                               covAcc: MatrixR,
-                               covGyro: MatrixR,
-                               covViconP: MatrixR,
-                               covViconQ: MatrixR)
+                               covAcc: Real,
+                               covGyro: Real,
+                               covViconP: Real,
+                               covViconQ: Real)(implicit val initHook: InitHook[TrajInit])
     extends Block2[(Acceleration, Omega), (Position, Attitude), (Position, Attitude)]
+    with RequireInit[TrajInit]
     with ParticleFilter {
 
   def imu   = source1
@@ -25,12 +25,11 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
 
   object State {
     val Hv = {
-      val id = DenseMatrix.eye[Real](3)
-      val m  = DenseMatrix.zeros[Real](3, 6)
-      m(::, 3 to 5) := id
+      val m = DenseMatrix.zeros[Real](3, 6)
+      m(::, 3 to 5) := eye(3)
       m
     }
-    val Rv = covViconP
+    val Rv = eye(3) * covViconP
   }
 
   case class State(x: MatrixR, cov: MatrixR) {
@@ -38,9 +37,10 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
     def v = x(0 to 2, 0).toDenseVector
     def p = x(3 to 5, 0).toDenseVector
 
-    def Q(dt: Time) = {
-      val m = DenseMatrix.zeros[Real](6, 6)
-      m(0 to 2, 0 to 2) := covViconP * (dt ** 2)
+    def Q(q: Quat, dt: Time) = {
+      val m             = DenseMatrix.zeros[Real](6, 6)
+      val covAccFixedDt = q.rotationMatrix * q.rotationMatrix.t * (covAcc * (dt ** 2))
+      m(0 to 2, 0 to 2) := covAccFixedDt
       m
     }
 
@@ -52,12 +52,12 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
       m
     }
 
-    def predict(a: Acceleration, dt: Time) = {
+    def predict(q: Quat, a: Acceleration, dt: Time) = {
 
       val u = DenseMatrix.zeros[Real](6, 1)
       u(0 to 2, 0) := a * dt
 
-      val (nx, ncov) = KalmanFilter.predict(x, cov, F(dt), u, Q(dt))
+      val (nx, ncov) = KalmanFilter.predict(x, cov, F(dt), u, Q(q, dt))
 
       copy(
         x = nx,
@@ -65,20 +65,25 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
       )
     }
 
-    def update(pos: Position) = {
+    def updatePos(pos: Position) = {
 
-      val (nx, ncov) = KalmanFilter.update(x, cov, pos.toDenseMatrix.t, State.Hv, State.Rv)
+      val (nx, ncov, zsig) = KalmanFilter.update(x, cov, pos.toDenseMatrix.t, State.Hv, State.Rv)
 
-      copy(
-        x = nx,
-        cov = ncov
-      )
+      (copy(
+         x = nx,
+         cov = ncov
+       ),
+       zsig)
     }
   }
 
-  def kalmanUpdate(ps: Particles, pos: Position) =
-    ps.copy(sp = ps.sp.map(x => x.copy(s = x.s.update(pos))))
-
+  def kalmanUpdatePos(ps: Particles, pos: Position) = {
+    ps.copy(sp = ps.sp.map(x => {
+      val (ns, (z, sig)) = x.s.updatePos(pos)
+      val p              = Rand.gaussianLogPdf(pos, z, sig)
+      x.copy(w = x.w + p, s = ns)
+    }))
+  }
 
   type Combined = Either[(Acceleration, Omega), (Position, Attitude)]
 
@@ -94,19 +99,23 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
       case Right((pos, att)) =>
         val psQ  = updateAttitude(ps, dt)
         val psS  = kalmanPredict(psQ, dt)
-        val psSP = kalmanUpdate(psS, pos)
-        val psWP = updateWeightPos(psSP, pos, covViconP)
-        updateWeightAtt(psWP, att, covViconQ)        
+        val psUP = kalmanUpdatePos(psS, pos)
+        updateWeightAtt(psUP, att, eye(3) * covViconQ)
 
     }
   }
 
+  def initS =
+    DenseMatrix.eye[Real](6) * (0.1 ** 24)
 
-  lazy val buffer: Source[Particles] = {
-    val initP =
-      Particle(log(1.0 / N), init, State(DenseMatrix.zeros[Real](6, 1), DenseMatrix.eye[Real](6) * 0.001), Vec3())
-    Buffer(process, Particles(Seq.fill(N)(initP), Vec3()), source1)
+  def initX = {
+    val m = DenseMatrix.zeros[Real](6, 1)
+    m(0 to 2, ::) := init.v.toDenseMatrix.t
+    m(3 to 5, ::) := init.p.toDenseMatrix.t
+    m
   }
+  def initP =
+    Particle(log(1.0 / N), init.q, State(initX, initS), Vec3())
 
   lazy val fused =
     imu

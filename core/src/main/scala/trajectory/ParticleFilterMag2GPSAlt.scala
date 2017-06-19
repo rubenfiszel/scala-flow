@@ -12,15 +12,15 @@ case class ParticleFilterMag2GPSAlt(rawSource1: Source[(Acceleration, Omega)],
                                     rawSource3: Source[Position],
                                     rawSource4: Source[Position],
                                     rawSource5: Source[AltitudeRay],
-                                    init: Quat,
                                     N: Int,
-                                    covAcc: MatrixR,
-                                    covGyro: MatrixR,
-                                    covMag: MatrixR,
-                                    covGPS1: MatrixR,
-                                    covGPS2: MatrixR,
-                                    varAlt: Real)
+                                    covAcc: Real,
+                                    covGyro: Real,
+                                    covMag: Real,
+                                    covGPS1: Real,
+                                    covGPS2: Real,
+                                    varAlt: Real)(implicit val initHook: InitHook[TrajInit])
     extends Block5[(Acceleration, Omega), Attitude, Position, Position, AltitudeRay, (Position, Attitude)]
+    with RequireInit[TrajInit]
     with ParticleFilter {
 
   def imu  = source1
@@ -32,13 +32,21 @@ case class ParticleFilterMag2GPSAlt(rawSource1: Source[(Acceleration, Omega)],
   def name = "ParticleFilterMag2GPSAlt"
 
   object State {
-    val Hv = {
-      val id = DenseMatrix.eye[Real](3)
+    val Hpos = {
       val m  = DenseMatrix.zeros[Real](3, 6)
-      m(::, 3 to 5) := id
+      m(::, 3 to 5) := eye(3)
       m
     }
-    val Rv = ???
+
+    val Halt = {
+      val m  = DenseMatrix.zeros[Real](1, 6)
+      m(0, 5) = 1.0
+      m      
+    }
+
+    val Rgps1 = eye(3)*covGPS1
+    val Rgps2 = eye(3)*covGPS1
+    val Ralt = eye(1)*varAlt
   }
 
   case class State(x: MatrixR, cov: MatrixR) {
@@ -46,9 +54,10 @@ case class ParticleFilterMag2GPSAlt(rawSource1: Source[(Acceleration, Omega)],
     def v = x(0 to 2, 0).toDenseVector
     def p = x(3 to 5, 0).toDenseVector
 
-    def Q(dt: Time) = {
-      val m = DenseMatrix.zeros[Real](6, 6)
-      m(0 to 2, 0 to 2) := ??? //covViconP * (dt ** 2)
+    def Q(q: Quat, dt: Time) = {
+      val m             = DenseMatrix.zeros[Real](6, 6)
+      val covAccFixedDt = q.rotationMatrix * q.rotationMatrix.t * (covAcc * (dt ** 2))
+      m(0 to 2, 0 to 2) := covAccFixedDt
       m
     }
 
@@ -59,13 +68,14 @@ case class ParticleFilterMag2GPSAlt(rawSource1: Source[(Acceleration, Omega)],
       m(5, 2) = dt
       m
     }
+    
 
-    def predict(a: Acceleration, dt: Time) = {
+    def predict(q: Quat, a: Acceleration, dt: Time) = {
 
       val u = DenseMatrix.zeros[Real](6, 1)
       u(0 to 2, 0) := a * dt
 
-      val (nx, ncov) = KalmanFilter.predict(x, cov, F(dt), u, Q(dt))
+      val (nx, ncov) = KalmanFilter.predict(x, cov, F(dt), u, Q(q, dt))
 
       copy(
         x = nx,
@@ -73,19 +83,66 @@ case class ParticleFilterMag2GPSAlt(rawSource1: Source[(Acceleration, Omega)],
       )
     }
 
-    def update(pos: Position) = {
+    def updatePosGPS1(pos: Position) = {
 
-      val (nx, ncov) = KalmanFilter.update(x, cov, pos.toDenseMatrix.t, State.Hv, State.Rv)
+      val (nx, ncov, zsig) = KalmanFilter.update(x, cov, pos.toDenseMatrix.t, State.Hpos, State.Rgps1)
 
-      copy(
-        x = nx,
-        cov = ncov
-      )
+      (copy(
+         x = nx,
+         cov = ncov
+       ),
+       zsig)
     }
+
+    def updatePosGPS2(pos: Position) = {
+
+      val (nx, ncov, zsig) = KalmanFilter.update(x, cov, pos.toDenseMatrix.t, State.Hpos, State.Rgps2)
+
+      (copy(
+         x = nx,
+         cov = ncov
+       ),
+       zsig)
+    }
+
+    def updateAlt(q: Quat, alt: AltitudeRay): (State, (VectorR, MatrixR))= {
+
+      val p = q.getPitch
+//      val d = traj.getPosition(t).z * cos(p)
+      
+      val tAlt: Real = ???
+  //    val (nx, ncov, zsig) = KalmanFilter.update(x, cov, DenseMatrix((tAlt)), State.Halt, State.Ralt)
+
+      ???
+    }
+    
   }
 
-  def kalmanUpdate(ps: Particles, pos: Position) =
-    ps.copy(sp = ps.sp.map(x => x.copy(s = x.s.update(pos))))
+  def kalmanUpdatePosGPS1(ps: Particles, pos: Position) = {
+    ps.copy(sp = ps.sp.map(x => {
+      val (ns, (z, sig)) = x.s.updatePosGPS1(pos)
+      val p              = Rand.gaussianLogPdf(pos, z, sig)
+      x.copy(w = x.w + p, s = ns)
+    }))
+  }
+
+  def kalmanUpdatePosGPS2(ps: Particles, pos: Position) = {
+    ps.copy(sp = ps.sp.map(x => {
+      val (ns, (z, sig)) = x.s.updatePosGPS2(pos)
+      val p              = Rand.gaussianLogPdf(pos, z, sig)
+      x.copy(w = x.w + p, s = ns)
+    }))
+  }
+
+  def kalmanUpdateAlt(ps: Particles, alt: AltitudeRay) = {
+    ps.copy(sp = ps.sp.map(x => {
+      val (ns, (z, sig)) = x.s.updateAlt(x.q, alt)
+      val p              = Rand.gaussianLogPdf(alt, z(0), sig(0, 0))
+      x.copy(w = x.w + p, s = ns)
+    }))
+  }
+  
+
 
   type Combined = Either[Either[Either[Either[(Acceleration, Omega), Attitude], Position], Position], AltitudeRay]
 
@@ -98,22 +155,38 @@ case class ParticleFilterMag2GPSAlt(rawSource1: Source[(Acceleration, Omega)],
       case Left(Left(Left(Left((acc, om))))) =>
         updateFromIMU(ps, acc, om, dt)
 
-      case Left(Left(Left(Right(alt)))) =>
-        ps
-      /*      case Right((pos, att)) =>
-        val psQ  = updateAttitude(ps, dt)
-        val psS  = kalmanPredict(psQ, dt)
-        val psSP = kalmanUpdate(psS, pos)
-        updateWeightPosAtt(psSP, pos, att)
-     */
+      case Left(Left(Left(Right(att)))) =>
+        val psQ = updateAttitude(ps, dt)
+        val psK = kalmanPredict(psQ, dt)
+        updateWeightAtt(psK, att, eye(3) * covMag)
+
+      case Left(Left(Right(pos))) =>
+        val psK = kalmanPredict(ps, dt)
+        kalmanUpdatePosGPS1(psK, pos)
+
+
+      case Left(Right(pos)) =>
+        val psK = kalmanPredict(ps, dt)
+        kalmanUpdatePosGPS2(psK, pos)        
+
+      case Right(alt) =>
+        val psK = kalmanPredict(ps, dt)
+        kalmanUpdateAlt(psK, alt)
+
     }
   }
 
-  lazy val buffer: Source[Particles] = {
-    val initP =
-      Particle(log(1.0 / N), init, State(DenseMatrix.zeros[Real](6, 1), DenseMatrix.eye[Real](6) * 0.001), Vec3())
-    Buffer(process, Particles(Seq.fill(N)(initP), Vec3()), source1)
+  def initS =
+    DenseMatrix.eye[Real](6) * (0.1 ** 24)
+
+  def initX = {
+    val m = DenseMatrix.zeros[Real](6, 1)
+    m(0 to 2, ::) := init.v.toDenseMatrix.t
+    m(3 to 5, ::) := init.p.toDenseMatrix.t
+    m
   }
+  def initP =
+    Particle(log(1.0 / N), init.q, State(initX, initS), Vec3())
 
   lazy val fused =
     imu

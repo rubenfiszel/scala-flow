@@ -7,11 +7,14 @@ import org.jzy3d.maths.Coord3d
 import org.jzy3d.plot3d.primitives._
 import org.jzy3d.plot3d.rendering.canvas.Quality
 
-class Jzy3dVisualisation(val rawSource1: Source[TrajectoryPoint],
-                         kps: List[Timestamped[Keypoint]])
-    extends SinkBatch1[TrajectoryPoint] {
+class Jzy3dVisualisation(traj: Trajectory) { 
 
-  def consumeAll(pts: ListT[TrajectoryPoint]) = {
+  def run() = {
+
+    val nbPoints = 1000
+    val pts = (0 to nbPoints).map(_/nbPoints.toDouble*traj.tf).map(x => Timestamped(x, traj.getPoint(x, 0.001)))
+    val kps = traj.getKeypoints
+
 
     val chart = AWTChartComponentFactory.chart(Quality.Advanced)
     val line = new LineStrip()

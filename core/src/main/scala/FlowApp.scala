@@ -1,14 +1,16 @@
 package dawn.flow
 
-trait FlowApp[M] extends App {
+trait FlowApp[M, I] extends App {
 
-  implicit val modelHook = ModelHook[M]
+  implicit val modelHook = new ModelHook[M] {}
+  implicit val initHook = new InitHook[I]
 
   def drawExpandedGraph() =
     PrimaryNodeHook.drawGraph()
 
-  def run(m: M) = {
+  def run(m: M, i: I) = {
     modelHook.setModel(m)
+    initHook.setInit(i)
     PrimarySchedulerHook.run()
   }
 

@@ -15,6 +15,8 @@ object Quat {
     mean*eQ
   }
 
+  def distance(q1: Quat, q2: Quat) = 6.0 - 2*trace(q1.attitudeMatrix*q2.attitudeMatrix.t)
+
   def getQuaternion(v1: Vec3, v2: Vec3) = {
     //http://stackoverflow.com/questions/1171849/finding-quaternion-representing-the-rotation-from-one-vector-to-another
     val a = cross(v1, v2)

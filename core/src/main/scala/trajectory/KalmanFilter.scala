@@ -6,7 +6,7 @@ object KalmanFilter {
 
   def predict(xp: MatrixR, sp: MatrixR, f: MatrixR, u: MatrixR, q: MatrixR) = {
     val xm = f*xp + u
-    val sigm = f*inv(sp)*f.t + q
+    val sigm = f*sp*f.t + q
     (xm, sigm)
   }
 
@@ -14,8 +14,17 @@ object KalmanFilter {
     val s = h*sigm*h.t + r
     val za = h*xm
     val k = sigm*h.t*inv(s)
-    val sig = sigm + k*s*k.t
+    val sig = sigm - k*s*k.t
     val x = xm + k*(z - za)
-    (x, sig)
+    (x, sig, (za.toDenseVector, s))
+  }
+
+  def extendedUpdate(xm: MatrixR, sigm: MatrixR, z: MatrixR, hx: MatrixR, h: MatrixR, r: MatrixR) = {
+    val s = h*sigm*h.t + r
+    val za = hx
+    val k = sigm*h.t*inv(s)
+    val sig = sigm - k*s*k.t
+    val x = xm + k*(z - za)
+    (x, sig, (za.toDenseVector, s))
   }
 }

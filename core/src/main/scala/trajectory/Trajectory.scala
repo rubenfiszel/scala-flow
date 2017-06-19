@@ -6,11 +6,19 @@ import breeze.linalg.{max => _, min => _, _ => _}
 import spire.math.{Real => _, _ => _}
 import spire.implicits._
 
+case class TrajInit(a: Acceleration, v: Velocity, p: Position, q: Quat)
+
 trait Trajectory extends Model {
 
   def tf: Timeframe
   def keypoints: List[(Keypoint, Timeframe)]
   def gravity: Vec3
+
+  def init: Init
+  def initQ: Quat
+
+  def trajInit = 
+    TrajInit(init.a, init.v, init.p, initQ)
 
   def getKeypoints = {
     var t = 0.0
@@ -22,6 +30,8 @@ trait Trajectory extends Model {
   def getVelocity(t: Time): Velocity
 
   def getAcceleration(t: Time): Acceleration
+
+  def isFeasible: Boolean
 
   //Acceleration + G
 //  def getFullAcceleration(t: Time): Acceleration =

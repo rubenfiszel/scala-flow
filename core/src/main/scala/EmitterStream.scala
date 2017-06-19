@@ -13,6 +13,7 @@ trait EmitterStream[A] extends Source[A] with Source0 {
   }
 
   override def reset() = {
+    super.reset()
     iterator = stream().toIterator
   }
   

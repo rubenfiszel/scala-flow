@@ -11,7 +11,7 @@ case class Plot[A: Data](rawSource1: Source[A]) extends SinkBatch1[A] {
     i += 1
     val data = implicitly[Data[A]]
     val x = st.map(_.time)
-    val y = st.map(x => data.toValues(x.v))
+    val y = st.map(x => data.toVector(x.v))
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
 
     val f = new Figure("fig " + i, ys.length, 1)
@@ -33,14 +33,16 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
   var i = 0
 
   def consumeAll(st: ListT[A], st2: ListT[A]) = {
+
+    println("plot")
     val data = implicitly[Data[A]]
 
     i += 1
 
     val x = st.map(_.time)
     val x2 = st2.map(_.time)
-    val y = st.map(x => data.toValues(x.v))
-    val y2 = st2.map(x => data.toValues(x.v))
+    val y = st.map(x => data.toVector(x.v))
+    val y2 = st2.map(x => data.toVector(x.v))
 
     val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
     val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))

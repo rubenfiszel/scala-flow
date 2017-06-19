@@ -88,6 +88,9 @@ case class ControlInputOmega(covBR: MatrixR, dt: Timestep)(implicit val modelHoo
 }
 
 case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M]) extends Sensor[(A, B), M] {
+
+  override def toString = sensor1.toString.take(4) + " and " + sensor2.toString.take(4)
+
   def modelHook = sensor1.modelHook
 
   def generate(model: M, t: Time) =

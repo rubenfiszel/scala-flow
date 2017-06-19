@@ -65,11 +65,11 @@ trait Buffer[A] extends Op1[A, A] {
 //parent is because we need to have a reliable model and scheduler
 //that doesn't rely on a loop.
 object Buffer {
-  def apply[A](rawSource11: => Source[A], init1: A, parent: Node) =
+  def apply[A](rawSource11: => Source[A], init1: => A, parent: Node) =
     new Buffer[A] {
       override def scheduler = parent.scheduler
       override def nodeHook = parent.nodeHook
-      val init = init1
+      def init = init1
       def rawSource1 = rawSource11
     }
 }
