@@ -3,12 +3,15 @@ package dawn.flow
 trait Batch[A, B]
     extends Source1[A]
     with Source[B]
-    with Accumulate1[A]
+    with Accumulate[A]
     with CloseListener {
 
   def schedulerClose = source1.scheduler
 
   override def closePriority = -1
+
+  //defined by Accumulate
+  def listen1(x: Timestamped[A]) = ()
 
   private var schedulerL: Scheduler = Scheduler.newOne()
   override def scheduler: Scheduler = {
@@ -18,7 +21,7 @@ trait Batch[A, B]
   def f(lA: ListT[A]): ListT[B]
 
   def onScheduleClose() = {
-    val lB = f(accumulated1)
+    val lB = f(accumulated(0))
     lB.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
     scheduler.run()
   }
@@ -53,21 +56,22 @@ case class ReplayWithScheduler[A](rawSource1: Source[A]) extends Batch[A, A] {
 case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
     extends Source1[A]
     with Source[A]
-    with Accumulate1[A]
+    with Accumulate[A]
     with CloseListener {
 
   def name = "Replay"
 
   def schedulerClose = source1.scheduler
 
+  def listen1(x: Timestamped[A]) = ()  
   //clever trick to make topological sort order depend on the sourceOut schedule
-  override def sources = sourceOut :: super.sources
+  override def rawSources = sourceOut :: super.rawSources
 
   override def closePriority = 1
   override def scheduler = sourceOut.scheduler
 
   def onScheduleClose() =
-    accumulated1.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
+    accumulated(0).foreach(x => scheduler.registerEvent(broadcast(x), x.time))
 
   //Same as above
   override def setup() = {

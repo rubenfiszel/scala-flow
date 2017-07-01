@@ -22,6 +22,7 @@ trait ParticleFilter {
     def predict(q: Quat, a: Acceleration, dt: Time): State    
   }
 
+
   case class Particle(w: Weight, q: Attitude, s: State, lastA: Acceleration)
   case class Particles(sp: Seq[Particle], lastO: Omega)
   
@@ -94,47 +95,9 @@ trait ParticleFilter {
     r
   }
 
-  def inverseQuatIfNotClose(ps: Particles): Particles = {
-    val first = ps.sp(0).q.toDenseVector    
-    def inverseIfNotClose(x: Quat) = 
-      if (x.toDenseVector.dot(first) > 0.0)
-        x
-      else
-        -x
-
-    ps.copy(ps.sp.map(x => x.copy(q = inverseIfNotClose(x.q))))
-
-  }
   //https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions
   def averageQuaternion(ps: Particles): Quat = {
-
-    val psI = inverseQuatIfNotClose(ps)    
-    //Should be the right way but doesn't seem to work as good as the second technique
-//    /*
-    val sqdv = ps.sp.map(x => (x.w, x.q.toDenseVector))
-    val qr = DenseMatrix.zeros[Real](4, 4)
-    for ((w, q) <- sqdv) {
-      qr += (q*q.t)*exp(w)
-    }
-    val eg = eig(qr)
-    val pvector = eg.eigenvectors(::, 0)
-    val r = pvector.toQuaternion
-
-    if (r.r < 0) {
-      //fallback method if absurd quaternion
-      //Use this instead http://wiki.unity3d.com/index.php/Averaging_Quaternions_and_Vectors
-      (psI.sp
-        .map(x => (exp(x.w), x.q))
-        .foldLeft(Quaternion(0.0, 0.0, 0.0, 0.0))((acc, qw) => acc + qw._2 * qw._1))
-        .normalized
-    }
-    else
-      r
-
-
-
-
-
+    Quat.averageQuaternion(ps.sp.map(x => (exp(x.w), x.q)))
   }
 
   
@@ -149,19 +112,19 @@ trait ParticleFilter {
     ps.copy(
       sp = ps.sp.map(x =>
         x.copy(w =
-          x.w + posLogLikelihood(x.s.p, pos, cov))))
+          x.w + posLogLikelihood(pos, x.s.p, cov))))
 
   def updateWeightAtt(ps: Particles, att: Attitude, cov: MatrixR) =
     ps.copy(
       sp = ps.sp.map(x =>
         x.copy(w =
-          x.w + attLogLikelihood(x.q, att, cov))))
+          x.w + attLogLikelihood(att, x.q, cov))))
 
-  def posLogLikelihood(state: Position, measurement: Position, cov: MatrixR) = {
+  def posLogLikelihood(measurement: Position, state: Position, cov: MatrixR) = {
     Rand.gaussianLogPdf(measurement, state, cov)
   }
 
-  def attLogLikelihood(state: Attitude, measurement: Attitude, cov: MatrixR) = {
+  def attLogLikelihood(measurement: Attitude, state: Attitude, cov: MatrixR) = {
     val error = measurement.rotateBy(state.reciprocal)
     val rad   = Quat.quatToAngle(error)
     Rand.gaussianLogPdf(rad, Vec3(), cov)

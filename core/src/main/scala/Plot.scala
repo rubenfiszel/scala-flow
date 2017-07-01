@@ -3,55 +3,50 @@ package dawn.flow
 import breeze.plot._
 import breeze.linalg._
 
-case class Plot[A: Data](rawSource1: Source[A]) extends SinkBatch1[A] {
 
+object Plot {
   var i = 0
-
-  def consumeAll(st: ListT[A]) = {
-    i += 1
-    val data = implicitly[Data[A]]
-    val x = st.map(_.time)
-    val y = st.map(x => data.toVector(x.v))
-    val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
-
-    val f = new Figure("fig " + i, ys.length, 1)
-    ys.zipWithIndex.foreach {
-      case (v, i) => {
-        val p = f.subplot(i)
-        p += plot(x, v)
-        p.xlabel = "time"
-        p.ylabel = "value"
-        p.ylim = (-1, 1)
-      }
-    }
-  }
 }
 
-case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
-    extends SinkBatch2[A, A] {
+case class Plot[A: Data](rawSource1: Source[A], rawSourcesIn: Source[A]*)
+    extends SinkBatchN[A] with Source1[A] {
 
-  var i = 0
+  override val rawSources = rawSource1 :: rawSourcesIn.toList
 
-  def consumeAll(st: ListT[A], st2: ListT[A]) = {
+  def listen1(x: Timestamped[A]) = ()
 
-    println("plot")
+  def consumeAll(ar: Array[ListT[A]]) = {
+
     val data = implicitly[Data[A]]
 
-    i += 1
+    val xs = ar.map(_.map(_.time))
+    val ys = ar.map(_.map(x => data.toVector(x.v)))
 
-    val x = st.map(_.time)
-    val x2 = st2.map(_.time)
-    val y = st.map(x => data.toVector(x.v))
-    val y2 = st2.map(x => data.toVector(x.v))
+//    println(ar.map(_.length).toList)
+//    println(ys.toList)
 
-    val ys = (0 until y(0).length).map(x => y.map(z => z(x)))
-    val ys2 = (0 until y2(0).length).map(x => y2.map(z => z(x)))
+    //Array[List[List[Data]]]
 
-    val f = new Figure("fig " + i, ys.length, 1)
+
+    val yss: IndexedSeq[Array[(List[Double], List[Real])]] =
+      ((0 until ys(0)(0).length)).map( i =>
+        (xs.zip(ys).map{ case (xsi, ysi) =>
+          (xsi, ysi.map( ysii =>
+            ysii(i)
+          ))
+        }
+        )
+      )
+
+    val f = new Figure("fig ", yss.length, 1)
     f.width = 1920
-    f.height = 2160
+    f.height = (2160/7.0*yss.length).toInt
     f.visible = false
-    val titles = ys.length match {
+    val titles = yss.length match {
+      case 1 =>
+        Seq("distance")
+      case 2 =>
+        Seq("p", "q")
       case 3 =>
         Seq("x", "y", "z")
       case 4 =>
@@ -59,18 +54,21 @@ case class Plot2[A: Data](rawSource1: Source[A], rawSource2: Source[A])
       case 7 =>
         Seq("x", "y", "z", "r", "i", "j", "k")
     }
-    ys.zip(ys2).zip(titles).zipWithIndex.foreach {
-      case (((v1, v2), t), i: Int) => {
+  
+    yss.zip(titles).zipWithIndex.foreach {
+      case (((vs), t), i: Int) => {
         val p = f.subplot(i)
-        p += plot(x, v1)
-        p += plot(x2, v2)
+        vs.foreach { case (x, y) => 
+          p += plot(x, y)
+        }
+
         p.xlabel = "time"
         p.ylabel = t
         p.legend = true
-//        p.ylim = (-1, 1)
       }
     }
-    f.visible = false    
-    f.saveas("plot.pdf", 50)
+
+    Plot.i += 1
+    f.saveas(s"plot-${Plot.i}.pdf", 50)
   }
 }

@@ -6,9 +6,9 @@ import spire.math.{Real => _, _ => _}
 import spire.implicits._
 import breeze.linalg._
 
+//TODO find why getting NAN sometimes if first IMU before  first vicon
 case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
                     rawSource2: Source[(Position, Attitude)],
-                    N: Int,
                     covAcc: Real,
                     covGyro: Real,
                     covViconP: Real,
@@ -28,10 +28,22 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
       m
     }
 
+  val sqrtViconQ = sqrt(covViconQ*3)    
     def R(q: Quat) = {
-      val m = eye(7)
-      m(0 to 2, ::) *= covViconP
-      m(3 to 6, 3 to 6) := eye(4)*0.0001 //I add a small noise. Could not find the correct form.
+      val m = DenseMatrix.zeros[Real](7, 7)
+      m(0 to 2, 0 to 2) := DenseMatrix.eye[Real](3) * covViconP
+      
+      for (i <- (0 to 5)) {
+        val dv = DenseVector.zeros[Real](3)
+        if (i >= 3)
+          dv(i-3) = -sqrtViconQ
+        else
+          dv(i) = sqrtViconQ
+        
+        val lq = (q*Quat.localAngleToLocalQuat(dv)).toDenseVector
+        m(3 to 6, 3 to 6) +=  ((lq - q.toDenseVector)*(lq - q.toDenseVector).t)*(1.0/6)
+      }
+//      println(m(3 to 6, 3 to 6))
       m
     }
   }
@@ -57,6 +69,34 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
       m(3, 0) = dt
       m(4, 1) = dt
       m(5, 2) = dt
+      val wx = lastO(0)
+      val wy = lastO(1)
+      val wz = lastO(2)            
+      //auto generated from sage
+      val n = sqrt(wx**2 + wy**2 + wz**2)
+      val sinn =
+        if (n < 0.000001)
+          1.0
+        else
+          sin(1.0/2*n*dt)/n
+
+      m(6, 6) = cos(1.0/2**dt)      
+      m(7, 6) = wx*sinn
+      m(8, 6) = wy*sinn
+      m(9, 6) = wz*sinn
+      m(6, 7) = -wx*sinn
+      m(7, 7) = cos(1.0/2*n*dt)
+      m(8, 7) = -wz*sinn
+      m(9, 7) = wy*sinn
+      m(6, 8) = -wy*sinn
+      m(7, 8) = wz*sinn
+      m(8, 8) = cos(1.0/2*n*dt)
+      m(9, 8) = -wx*sinn
+      m(6, 9) = -wz*sinn
+      m(7, 9) = -wy*sinn
+      m(8, 9) = wx*sinn
+      m(9, 9) = cos(1.0/2*n*dt)
+      //
       m
     }
 
@@ -71,8 +111,15 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
       nx(3 to 5, ::) := np.toDenseMatrix.t
       nx(6 to 9, ::) := nq.toDenseVector.toDenseMatrix.t
 
+
       val f = F(dt)
       val ncov = f*cov*f.t + Q(nq, dt)
+
+
+      //      println(nx(0, 0))
+//      println(f.toString(1000, 1000))
+//      println((f*cov*f.t).toString(1000, 1000))
+      
 
       copy(x = nx, cov = ncov)
 
@@ -90,6 +137,7 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
 
       val (nx, ncov, zsig) = KalmanFilter.extendedUpdate(x, cov, z, hx, State.H, State.R(q))
 
+
       copy(
          x = nx,
          cov = ncov
@@ -99,14 +147,16 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
 
   type Combined = Either[(Acceleration, Omega), (Position, Attitude)]
 
+
   def update(x: (Timestamped[Combined], Timestamped[State])): State = {
     val (Timestamped(t1, e, _), Timestamped(t2, s, _)) = x
 
+//    println(t1, t2, e.toString.take(10))
     val dt = t1 - t2
 
     e match {
       case Left((acc, om)) =>
-        s
+          s
           .copy(lastA = acc, lastO = om)
           .predict(dt)
 
@@ -123,12 +173,12 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
 
   lazy val out: Source[(Position, Quat)] =
     process
-      .map(x => (x.p, x.q))
+      .map(x => (x.p, x.q), "P & Q")
 
   lazy val process: Source[State] =
     fused
       .zipLastT(buffer)
-      .map(update)
+      .map(update, "Update")
 
   lazy val buffer: Source[State] = {
     def initX: MatrixR =  {
@@ -140,9 +190,10 @@ case class EKFVicon(rawSource1: Source[(Acceleration, Omega)],
     }
 
     def initS =
-      DenseMatrix.eye[Real](10) * (0.1**24)
+      DenseMatrix.eye[Real](10) * (0.1**3)
       
     Buffer(process, State(initX, initS, init.a, Vec3()), source1)
   }
 
 }
+

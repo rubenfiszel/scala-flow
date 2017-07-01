@@ -42,9 +42,9 @@ package object trajectory {
       val m = DenseMatrix(
         (0.0, -q.k, q.j),
         (q.k, 0.0, -q.i),
-        (-q.k, q.i, 0.0))
+        (-q.j, q.i, 0.0))
 
-      DenseMatrix.eye[Real](3)*(q.r - norm(axisC)**2) + axisC*axisC.t*2.0 - m*2.0*q.r
+      DenseMatrix.eye[Real](3)*(q.r**2 - norm(axisC)**2) + axisC*axisC.t*2.0 - m*2.0*q.r
 
     }
 

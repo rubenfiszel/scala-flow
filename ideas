@@ -29,6 +29,11 @@
 - scalameta to name anon function
 - images in REPL or javascript images
 
+- implement groupBy and reduce
+
+
 //THESIS
 - add contributions to master thesis Internal type
 - add fake struct default argument
+- PF as sum of gaussian
+- add that I did equal

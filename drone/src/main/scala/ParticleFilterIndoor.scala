@@ -1,7 +1,7 @@
 package dawn.flow.trajectory
 
 import dawn.flow._
-import breeze.linalg._
+import breeze.linalg.norm
 import spire.math.Quaternion
 
 object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
@@ -11,10 +11,10 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
   val dtIMU   = 0.005
   val dtVicon = (dtIMU * 50)
 
-  val covScale = 0.8
+  val covScale = 0.1
   //filter parameter
   val covAcc    = 1.0 * covScale
-  val covGyro   = 1.0 * covScale
+  val covGyro   = 10.0 * covScale
   val covViconP = 0.1 * covScale
   val covViconQ = 0.1 * covScale
 
@@ -26,21 +26,15 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
   val imu   = clockIMU.map(IMU(eye(3) * covAcc, eye(3) * covGyro, dtIMU))
   val vicon = clockVicon.map(Vicon(eye(3) * covViconP, eye(3) * covViconQ))
 
-  /* batch example
-  val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2), "*2")
-  Plot2(batch, accelerometer)
-   */
 
-  val filterN = 2
-
-  val filter = filterN match {
-    case 0 =>
+  lazy val acfilter = 
       AugmentedComplementaryFilter(
         imu,
         vicon,
         0.95
       )
-    case 1 =>
+
+  lazy val pfilter = 
       ParticleFilterVicon(
         imu,
         vicon,
@@ -50,20 +44,32 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
         covViconP,
         covViconQ
       )
-    case 2 =>
+
+  lazy val ekfilter = 
       EKFVicon(
         imu,
         vicon,
-        numberParticles,
         covAcc,
         covGyro,
         covViconP,
         covViconQ
       )
-  }
 
-  val testLog = new TestLogger()
+  lazy val ukfilter =   
+      UKFVicon(
+        imu,
+        vicon,
+        covAcc,
+        covGyro,
+        covViconP,
+        covViconQ
+      )
 
+  def filter = ekfilter
+
+
+  val filters = List(acfilter, ekfilter, ukfilter, pfilter)
+  val testLogs = filters.map(x => new TestLogger(x.toString.take(10)))
 
   def figure() = {
     val points = clockIMU.map(LambdaWithModel((t: Time, traj: Trajectory) => traj.getPoint(t)), "toPoints")
@@ -71,32 +77,48 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
     val pqs =
       points.map(x => (x.p, x.q), "toPandQ")
 
-    Plot2(filter, pqs)
+    Plot(pqs, filters:_*)
   }
 
-  def testTS() = {
-    val toDist = filter.mapT(
+  def figureError() = {
+
+
+    val toDists = filters.map(_.mapT(
+      LambdaWithModel((ts: Timestamped[(Position, Quat)], traj: Trajectory) =>
+        (norm(traj.getPosition(ts.t) - ts.v._1), Quat.distance(traj.getOrientationQuaternion(ts.t), ts.v._2))),
+      "DistanceToLabel"
+    ))
+    
+    Plot(toDists(0), toDists.drop(1):_*)
+  }
+  
+  def testTS(s: Source[(Position, Quat)], tl: TestLogger) = {
+
+    val toDist = s.mapT(
       LambdaWithModel((ts: Timestamped[(Position, Quat)], traj: Trajectory) =>
         (norm(traj.getPosition(ts.t) - ts.v._1), Quat.distance(traj.getOrientationQuaternion(ts.t), ts.v._2))),
       "DistanceToLabel"
     )
-
+    
     val labeled = toDist.labelData(_ => (0.0, 0.0))
-    TestTS(labeled, Some(testLog))
+    TestTS(labeled, s.toString.take(10), Some(tl) )
   }
 
-  figure()
-  testTS()
+//  figure()
+//  figureError()
+  filters.zip(testLogs).foreach { case (x,y) => testTS(x, y) }
 //  filter.println
 
-//  drawExpandedGraph()
-  val trajs = TrajFactory.generate(1)
+  drawExpandedGraph()
+
+  val trajs = TrajFactory.generate(5)
+
   trajs.foreach(traj => {
     run(traj, traj.trajInit)
   })
 
-  testLog.printAll()
-  testLog.printMean()
+  testLogs.foreach(_.printAll)
+  testLogs.foreach(_.printMean)  
 
   System.exit(0)
 

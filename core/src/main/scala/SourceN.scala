@@ -1,52 +1,45 @@
 package dawn.flow
 
-sealed trait SourceN extends Node {
+trait SourceN extends Node {
+  self => 
   def scheduler: Scheduler
+  lazy val sources: List[Source[_]] =
+    rawSources.drop(1).foldLeft(List[Source[_]](rawSources(0)))(
+      (acc, pos) => {
+      val nl = acc ::: List(pos)
+      if (acc(0).scheduler != pos.scheduler) {
+        val s1: Source[_] = ReplayWithScheduler(acc(0))
+        val tl: List[Source[_]] = (acc ::: List(pos)).drop(1).map(x => Replay(x, s1))
+        s1 :: tl
+      }
+      else 
+        nl
+      }
+    )
+
+  def listenN(i: Int, x: Timestamped[_]) = ()
+  override def setup() = {
+    super.setup()
+    sources.zipWithIndex.map { case (r, i) => r.addChannel(ChannelN(i+1, self, scheduler)) }
+  }
+  
 }
 
 trait Source0 extends SourceN {
   def schedulerHook: SchedulerHook
   def scheduler = schedulerHook.scheduler
-  lazy val sources: List[Node] = List()
-  lazy val rawSources: List[Node] = List()
+  lazy val rawSources: List[Source[_]] = List()
+  override lazy val sources: List[Source[_]] = List()
 }
 
-trait Source1[A] extends Node { self =>
+trait Source1[A] extends Node with SourceN { self =>
 
   def scheduler = source1.scheduler
   def nodeHook = rawSource1.nodeHook
   def rawSource1: Source[A]
-  def source1: Source[A] = rawSource1
-  override def rawSources: List[Node] = List(rawSource1)
-  override def sources: List[Node] = List(source1)
+  def source1: Source[A] = sources(0).asInstanceOf[Source[A]]
+  override def rawSources: List[Source[_]] = List(rawSource1)
   def listen1(x: Timestamped[A])
-
-  //Memoization to avoid recreating clone
-  lazy val os1: collection.mutable.Map[(Source[A], Source[_]), Source[A]] =
-    collection.mutable.Map()
-
-  def overrideSource1[C](lSource1: Source[A], lSourceX: Source[C]) = {
-    os1.getOrElseUpdate((lSource1, lSourceX), {
-      if (lSource1.scheduler != lSourceX.scheduler) {
-        ReplayWithScheduler(lSource1)
-      } else
-        lSource1
-    })
-  }
-
-  lazy val os2: collection.mutable.Map[(Source[A], Source[_]), Source[_]] =
-    collection.mutable.Map()
-
-  def overrideSourceX[C](lSource1: Source[A], lSourceX: Source[C]) = {
-    os2
-      .getOrElseUpdate((lSource1, lSourceX), {
-        if (lSource1.scheduler != lSourceX.scheduler)
-          Replay(lSourceX, lSource1)
-        else
-          lSourceX
-      })
-      .asInstanceOf[Source[C]]
-  }
 
   override def setup() = {
     super.setup()
@@ -56,16 +49,12 @@ trait Source1[A] extends Node { self =>
 
 trait Source2[A, B] extends Source1[A] { self =>
   def rawSource2: Source[B]
-  override def rawSources = rawSource2 :: super.rawSources
-  override def sources = source2 :: super.sources
+  override def rawSources = super.rawSources ::: List(rawSource2)
 
   def listen2(x: Timestamped[B])
 
-  override def source1: Source[A] =
-    overrideSource1(super.source1, rawSource2)
+  def source2: Source[B] = sources(1).asInstanceOf[Source[B]]
 
-  def source2: Source[B] =
-    overrideSourceX(source1, rawSource2)
 
   override def setup() = {
     super.setup()
@@ -75,18 +64,10 @@ trait Source2[A, B] extends Source1[A] { self =>
 
 trait Source3[A, B, C] extends Source2[A, B] { self =>
   def rawSource3: Source[C]
-  override def rawSources = rawSource3 :: super.rawSources
-  override def sources = source3 :: super.sources
+  override def rawSources = super.rawSources ::: List(rawSource3)
   def listen3(x: Timestamped[C])
 
-  override def source1: Source[A] =
-    overrideSource1(super.source1, rawSource3)
-
-  override def source2: Source[B] =
-    overrideSourceX(source1, super.source2)
-
-  def source3: Source[C] =
-    overrideSourceX(source1, rawSource3)
+  def source3: Source[C] = sources(2).asInstanceOf[Source[C]]
 
   override def setup() = {
     super.setup()
@@ -97,21 +78,11 @@ trait Source3[A, B, C] extends Source2[A, B] { self =>
 
 trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
   def rawSource4: Source[D]
-  override def rawSources = rawSource4 :: super.rawSources
-  override def sources = source4 :: super.sources
+  override def rawSources = super.rawSources ::: List(rawSource4)
   def listen4(x: Timestamped[D])
 
-  override def source1: Source[A] =
-    overrideSource1(super.source1, rawSource4)
-
-  override def source2: Source[B] =
-    overrideSourceX(source1, super.source2)
-
-  override def source3: Source[C] =
-    overrideSourceX(source1, super.source3)
-
   def source4: Source[D] =
-    overrideSourceX(source1, rawSource4)
+    sources(3).asInstanceOf[Source[D]]
 
   override def setup() = {
     super.setup()
@@ -123,28 +94,30 @@ trait Source4[A, B, C, D] extends Source3[A, B, C] { self =>
 trait Source5[A, B, C, D, E] extends Source4[A, B, C, D] {
   self =>
   def rawSource5: Source[E]
-  override def rawSources = rawSource5 :: super.rawSources
-  override def sources = source5 :: super.sources
   def listen5(x: Timestamped[E])
-
-  override def source1: Source[A] =
-    overrideSource1(super.source1, rawSource4)
-
-  override def source2: Source[B] =
-    overrideSourceX(source1, super.source2)
-
-  override def source3: Source[C] =
-    overrideSourceX(source1, super.source3)
-
-  override def source4: Source[D] =
-    overrideSourceX(source1, super.source4)
-  
+  override def rawSources = super.rawSources ::: List(rawSource5)
   def source5: Source[E] =
-    overrideSourceX(source1, rawSource5)
+    sources(4).asInstanceOf[Source[E]]    
 
   override def setup() = {
     super.setup()
     source5.addChannel(Channel5(self, scheduler))
+  }
+
+}
+
+
+trait Source6[A, B, C, D, E, F] extends Source5[A, B, C, D, E] {
+  self =>
+  def rawSource6: Source[F]
+  def listen6(x: Timestamped[F])
+  override def rawSources = super.rawSources ::: List(rawSource6)
+  def source6: Source[F] =
+    sources(5).asInstanceOf[Source[F]]    
+
+  override def setup() = {
+    super.setup()
+    source6.addChannel(Channel6(self, scheduler))
   }
 
 }

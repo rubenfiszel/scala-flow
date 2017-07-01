@@ -17,22 +17,21 @@ import breeze.linalg.{
 //https://pdfs.semanticscholar.org/480b/7477c76a1b2b2b130923f09a66ecdb0fb910.pdf
 
 case class OrientationComplementaryFilter(
-    rawSource1: Source[Acceleration],
-    rawSource2: Source[Omega],
-  rawSource3: Source[Thrust],
-    init: Quat,
+    rawSource1: Source[(Acceleration, Omega)],
+  rawSource2: Source[Thrust],
   alpha: Real
-)
-    extends Block3[Acceleration, Omega, Thrust, Quat] {
+)(implicit val initHook: InitHook[TrajInit])
+    extends Block2[(Acceleration, Omega), Thrust, Quat]
+    with RequireInit[TrajInit]
+{
 
   def name = "OCF"
 
-  def acc = source1
-  def omegaG = source2
-  def thrust = source3
+  lazy val (acc, omegaG) = source1.unzip2
+  def thrust = source2
 
-  def attitudeAcc(atv: ((Acceleration, Thrust), Quat)) = {
-    val ((a, th), q) = atv
+  def attitudeAcc(at: (Acceleration, Thrust)) = {
+    val (a, th) = at
     Quat.getQuaternion(
       a - Vec3(0, 0, 1) * th, //Remove thrust from acceleration to retrieve gravity
       Vec3(0, 0, -1))
@@ -40,15 +39,14 @@ case class OrientationComplementaryFilter(
 
   lazy val accQuat =
     acc
-      .zip(thrust)
-      .zip(buffer)
+      .zip(thrust, true)
       .map(attitudeAcc, "ACC2Quat")
 
 
 
   lazy val bodyRateInteg: Source[Vec3] =
     omegaG
-      .zipT(buffer)
+      .zipT(buffer, true)
       .map(x => x._1.v*(x._1.t - x._2.t), "Integ")
 
   lazy val gyroQuatLocal =
@@ -58,16 +56,16 @@ case class OrientationComplementaryFilter(
 
   lazy val gyroQuat =
     gyroQuatLocal
-      .zip(buffer)
+      .zip(buffer, true)
       .map(x => x._1.rotateBy(x._2), "Rotation")
 
   lazy val buffer: Source[Quat] =
-    Buffer(out, init, source1)
+    Buffer(out, init.q, source1)
 
   lazy val out =
     gyroQuat
-      .zip(accQuat)
-      .map(ga => ga._1 * alpha + ga._2 * (1 - alpha))
+      .zip(accQuat, true)
+      .map(ga => ga._1 * alpha + ga._2 * (1 - alpha), "Combining")
 
 
 }

@@ -51,9 +51,10 @@ trait Source[A] extends Node { parent =>
       f.toString,
       RequireModel.isRequiring(f))
 
-  def filterT(b: Timestamped[A] => Boolean, name1: String = ""): Source[A] =
+  def filterT(b: Timestamped[A] => Boolean, name1: String = "", silent1: Boolean = false): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
+      override def silent = silent1      
       def listen1(x: Timestamped[A]) = {
         if (b(x))
           broadcast(x)
@@ -63,8 +64,8 @@ trait Source[A] extends Node { parent =>
       override def requireModel = RequireModel.isRequiring(b)
     }
 
-  def filter(b: A => Boolean, name1: String = ""): Source[A] =
-    filterT(liftBool(b), name1)
+  def filter(b: A => Boolean, name1: String = "", silent1: Boolean = false): Source[A] =
+    filterT(liftBool(b), name1, silent1)
 
   def foreachT(f: Timestamped[A] => Unit, name1: String = ""): Source[A] =
     new Op1[A, A] {
@@ -78,6 +79,37 @@ trait Source[A] extends Node { parent =>
       override def requireModel = RequireModel.isRequiring(f)
     }
 
+  def accumulate(clock: Source[Time]): Source[ListT[A]] = {
+    new Op2[A, Time, ListT[A]] {
+      def rawSource1 = parent
+      def rawSource2 = clock
+      val q1: Queue[Timestamped[A]] = Queue()
+
+      def listen1(x: Timestamped[A]) = {        
+        q1.enqueue(x)
+      }
+      def listen2(x: Timestamped[Time]) = {
+        broadcast(Timestamped(x.t, q1.dequeueAll(_ => true).toList))
+      }
+
+      def name = "Accumulate"
+    }
+  }
+    
+ 
+
+  def reduceT[B](default: B, f: (Timestamped[B], Timestamped[B]) => Timestamped[B])(implicit ev: A <:< List[Timestamped[B]]): Source[B] =
+    map(ev(_).reduceOption(f).map(_.v).getOrElse(default), "reduce")
+
+  def reduce[B](default: B, f: (B, B) => B)(implicit ev: A <:< ListT[B]): Source[B] =
+    map(ev(_).map(_.v).reduceOption(f).getOrElse(default), "reduce")    
+  
+  def groupByT[B](f: Timestamped[A] => B): Source[(B, A)] =
+    mapT(x => (f(x), x.v), "groupBy")
+
+  def groupBy[B](f: A => B): Source[(B, A)] =
+    groupByT(lift(f))
+  
   def debug(): Source[A] =
     foreachT(x => Console.println(s"[$this]: $x)"), "Debug")
 
@@ -93,9 +125,10 @@ trait Source[A] extends Node { parent =>
     zip(buffer(init))
       .map(x => x._2)
 
-  def takeWhileT(b: Timestamped[A] => Boolean, name1: String = ""): Source[A] =
+  def takeWhileT(b: Timestamped[A] => Boolean, name1: String = "", silent1: Boolean = false): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
+      override def silent = silent1
       def listen1(x: Timestamped[A]) = {
         if (b(x))
           broadcast(x)
@@ -109,11 +142,12 @@ trait Source[A] extends Node { parent =>
       override def requireModel = RequireModel.isRequiring(b)
     }
 
-  def takeWhile(b: A => Boolean, name1: String = ""): Source[A] =
-    takeWhileT(liftBool(b), name1)
+  def takeWhile(b: A => Boolean, name1: String = "", silent1: Boolean = false): Source[A] =
+    takeWhileT(liftBool(b), name1, silent1)
 
   def mapT[B](f: Timestamped[A] => B,
-              name1: String = ""): Source[B] =
+    name1: String = "",
+  silent1: Boolean = false): Source[B] =
     new Op1[A, B] {
       def rawSource1 = parent
       def listen1(x: Timestamped[A]) = {
@@ -121,15 +155,16 @@ trait Source[A] extends Node { parent =>
         broadcast(mx)
       }
 
-      def name = "Map " + getStrOrElse(name1, f.toString)
+      def name = getStrOrElse(name1, "Map " + f.toString)
       override def requireModel = RequireModel.isRequiring(f)
+      override def silent = silent1
     }
 
-  def map[B](f: A => B, name1: String = ""): Source[B] =
-    mapT(lift(f), name1)
+  def map[B](f: A => B, name1: String = "", silent: Boolean = false): Source[B] =
+    mapT(lift(f), name1, silent)
 
   def muted: Source[A] = 
-    filter(_ => false)
+    filter(_ => false, "Muted")
 
   def flatMapT[C](f: Timestamped[A] => List[Timestamped[C]],
                   name1: String = ""): Source[C] =
@@ -139,7 +174,7 @@ trait Source[A] extends Node { parent =>
         f(x).foreach(x => broadcast(x))
       }
 
-      def name = "FlatMap " + getStrOrElse(name1, f.toString)
+      def name = getStrOrElse(name1, "FlatMap " + f.toString)
       override def requireModel = RequireModel.isRequiring(f)
     }
 
@@ -169,10 +204,11 @@ trait Source[A] extends Node { parent =>
 
   //Zip everthing
   // A1 A2 B1 A3 B2 B3 B4 B5 A4=> (A1, B1), (A2, B2), (A3, B3), (A4, B4), [Queue[B5]]
-  def zipT[B](s2: Source[B]) =
+  def zipT[B](s2: Source[B], silent1: Boolean = false) =
     new Op2[A, B, (Timestamped[A], Timestamped[B])] {
       def rawSource1 = parent
       def rawSource2 = s2
+      override def silent = silent1      
       val q1: Queue[Timestamped[A]] = Queue()
       val q2: Queue[Timestamped[B]] = Queue()
       def listen1(x: Timestamped[A]) = {
@@ -197,16 +233,16 @@ trait Source[A] extends Node { parent =>
     }
 
   def unzip2[B, C](implicit ev: A <:< (B, C)): (Source[B], Source[C]) = {
-    val s = map(ev.apply, "Unzip")
-    (s.map(_._1), s.map(_._2))
+    val s = map(ev.apply, "Unzip", true)
+    (s.map(_._1, "_._1", true), s.map(_._2, "_._2", true))
   }
 
   private def mergeTS[B, C](
       x: Timestamped[(Timestamped[B], Timestamped[C])]): (B, C) =
     (x.v._1.v, x.v._2.v)
 
-  def zip[B](s2: Source[B]) =
-    zipT(s2).mapT(mergeTS, "ZipT")
+  def zip[B](s2: Source[B], silent: Boolean = false) =
+    zipT(s2, silent).mapT(mergeTS, "ZipT", true)
 
   //Only zip the last of the right
   // A1 A2 B1 A3 B2 B3 B4 B5 A4=> (A1, B1), (A2, B2), (A3, B3), (A4, B5)
@@ -241,7 +277,7 @@ trait Source[A] extends Node { parent =>
     }
 
   def zipLastRight[B](s2: Source[B]) =
-    zipLastRightT(s2).mapT(mergeTS, "ZipLastRightT")
+    zipLastRightT(s2).mapT(mergeTS, "ZipLastRightT", true)
 
 
   //Only zip the last pair
@@ -277,7 +313,7 @@ trait Source[A] extends Node { parent =>
     }
 
   def zipLast[B](s2: Source[B]) =
-    zipLastT(s2).mapT(mergeTS, "ZipLastT")
+    zipLastT(s2).mapT(mergeTS, "ZipLastT", true)
   
   def merge[B](s2: Source[B]): Source[Either[A, B]] =
     new Op2[A, B, Either[A, B]] {

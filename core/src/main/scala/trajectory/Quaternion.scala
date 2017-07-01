@@ -39,6 +39,46 @@ object Quat {
     Vec3(q.i*s, q.j*s, q.k*s) 
   }
 
+  def inverseQuatIfNotClose(ps: Seq[(Real, Quat)]): Seq[(Real, Quat)] = {
+    val first = ps(0)._2.toDenseVector    
+    def inverseIfNotClose(x: Quat) = 
+      if (x.toDenseVector.dot(first) > 0.0)
+        x
+      else
+        -x
+
+    ps.map(x => (x._1, inverseIfNotClose(x._2)))
+
+  }
+  
+  //https://stackoverflow.com/questions/12374087/average-of-multiple-quaternions
+  def averageQuaternion(sqdv: Seq[(Real, Quat)]): Quat = {
+
+    //Should be the right way but doesn't seem to work as good as the second technique
+//    /*
+//    val sqdv = ps.sp.map(x => (x.w, x.q.toDenseVector))
+    val qr = DenseMatrix.zeros[Real](4, 4)
+    for ((w, qdv) <- sqdv) {
+      val q = qdv.toDenseVector
+      qr += (q*q.t)*w
+    }
+    val eg = eig(qr)
+    val pvector = eg.eigenvectors(::, 0)
+    val r = pvector.toQuaternion
+
+    if (r.r < 0) {
+      //fallback method if absurd quaternion
+      //Use this instead http://wiki.unity3d.com/index.php/Averaging_Quaternions_and_Vectors
+
+      (inverseQuatIfNotClose(sqdv)
+        .foldLeft(Quaternion(0.0, 0.0, 0.0, 0.0))((acc, qw) => acc + qw._2 * qw._1))
+        .normalized
+    }
+    else
+      r
+  }
+
+
 
   //https://www.astro.rug.nl/software/kapteyn/_downloads/attitude.pdf page 19
   def bodyRateToGlobalQuat(q: Quat,

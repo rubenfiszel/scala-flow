@@ -5,12 +5,13 @@ trait Node { self =>
   def nodeHook: NodeHook
   nodeHook.addNode(self)
   def scheduler: Scheduler
-  def rawSources: Seq[Node]
-  def sources: Seq[Node]
+  def rawSources: List[Source[_]]
+  def sources: List[Source[_]]
   def requireModel = RequireModel.isRequiring(self)
   override def toString = getClass.getSimpleName
   def setup(): Unit = ()//println(this)
-  def reset(): Unit = ()//println(this)  
+  def reset(): Unit = ()//println(this)
+  def silent = false
 }
 
 object Node {

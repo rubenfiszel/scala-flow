@@ -43,7 +43,7 @@ case class Altimeter(variance: Real)(implicit val modelHook: ModelHook[Trajector
   def generate(traj: Trajectory, t: Time) = {
     val q = traj.getOrientationQuaternion(t)
     val p = q.getPitch
-    val d = traj.getPosition(t).z * cos(p)
+    val d = traj.getPosition(t).z/cos(p)
     Rand.gaussian(d, variance)
   }
 
@@ -74,6 +74,7 @@ case class OpticalFlow(covDP: MatrixR, covDQ: MatrixR, dt: Time)(implicit val mo
 case class ControlInputThrust(variance: Real, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
     extends Sensor[Thrust, Trajectory] {
 
+  override def toString = "CI Thrust"
   def generate(traj: Trajectory, t: Time) =
     Rand.gaussian(traj.getThrust(t), variance)
 
@@ -82,6 +83,7 @@ case class ControlInputThrust(variance: Real, dt: Timestep)(implicit val modelHo
 case class ControlInputOmega(covBR: MatrixR, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
     extends Sensor[Omega, Trajectory] {
 
+  override def toString = "CI Omega"  
   def generate(traj: Trajectory, t: Time) =
     Rand.gaussian(traj.getOmega(t, dt), covBR)
 
@@ -99,27 +101,36 @@ case class Sensor2[A, B, M](sensor1: Sensor[A, M], sensor2: Sensor[B, M]) extend
 
 object IMU {
   def apply(covAcc: MatrixR, covGyro: MatrixR, dtGyro: Time)(implicit mh: ModelHook[Trajectory]) =
-    Sensor2(Accelerometer(covAcc), Gyroscope(covGyro, dtGyro))
+    new Sensor2(Accelerometer(covAcc), Gyroscope(covGyro, dtGyro)) {
+      override def toString = "IMU"
+    }
 }
 
 
 object GPS {
 
   def apply(cov: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
-    PositionSensor(cov)
+    new PositionSensor(cov) {
+      override def toString = "GPS"
+    }
 
 }
 
 object Magnetometer {
 
   def apply(cov: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
-    AttitudeSensor(cov)
+    new AttitudeSensor(cov) {
+      override def toString = "Magnetometer"
+    }
 
 }
 
 object Vicon {
 
   def apply(covP: MatrixR, covQ: MatrixR)(implicit modelHook: ModelHook[Trajectory]) =
-    Sensor2(PositionSensor(covP), AttitudeSensor(covQ))
+    new Sensor2(PositionSensor(covP), AttitudeSensor(covQ)) {
+      override def toString = "Vicon"
+    }      
+    
 
 }

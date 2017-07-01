@@ -8,35 +8,30 @@ trait Sink1[A] extends Node with Source1[A] with Sink {
     f(x)
 }
 
-trait SinkBatch1[A]
+trait SinkBatchN[A]
     extends Node
     with CloseListener
-    with Accumulate1[A]
-    with Source1[A]
+    with Accumulate[A]
     with Sink {
 
   def schedulerClose = scheduler
 
-  def onScheduleClose() =
-    consumeAll(accumulated1.reverse)
+  def onScheduleClose() = {
+    accumulated = accumulated.map(_.reverse)
+    consumeAll(accumulated)
+  }
 
-  def consumeAll(x: ListT[A]): Unit
+  def consumeAll(x: Array[ListT[A]]): Unit
 }
 
-trait SinkBatch2[A, B]
-    extends Node
-    with CloseListener
-    with Accumulate2[A, B]
-    with Source2[A, B]
-    with Sink {
+trait SinkBatch1[A] extends SinkBatchN[A] with Source1[A] {
 
-  def schedulerClose = scheduler
+  def listen1(x: Timestamped[A]) = ()
 
-  def onScheduleClose() =
-    consumeAll(accumulated1.reverse, accumulated2.reverse)
-
-  def consumeAll(x: ListT[A], y: ListT[B]): Unit
-
+  def consumeAll(x: Array[ListT[A]]) = {
+    consumeAll1(x(0))
+  }
+  def consumeAll1(x: ListT[A]): Unit
 }
 
 /*

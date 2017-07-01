@@ -1,0 +1,28 @@
+//  /*
+  //  /* batch example
+  val (accelerometer, _) = imu.unzip2
+  val batch = Batch(accelerometer, (x: ListT[Acceleration]) => x.map(_*2.0), "*2")
+
+  Plot2(batch, accelerometer)  
+
+//   */  
+
+  accelerometer
+    .muted
+    .filter(norm(_) < 0.2, "< 2.0")//
+    .map(_*2.0, "*2")
+    .zip(accelerometer)
+    .zipLast(accelerometer)
+    .merge(accelerometer)
+
+  accelerometer
+    .fusion(accelerometer)
+    .takeWhile(norm(_) < 0.2, "< 2.0")
+    .accumulate(clockVicon)
+    .reduceT(Vec3(), (x: Acceleration, y: Acceleration) => x + y)
+    .groupBy(x => norm(x.v))
+//    .foreach(println)
+    .debug
+   */
+
+

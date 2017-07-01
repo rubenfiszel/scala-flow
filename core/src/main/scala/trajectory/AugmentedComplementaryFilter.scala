@@ -69,10 +69,10 @@ case class AugmentedComplementaryFilter(rawSource1: Source[(Acceleration, Omega)
     imu
       .merge(vicon)
       .zipLastT(state)
-      .map(update)
+      .map(update, "update")
 
   lazy val state: Source[State] =
     Buffer(upd, State(init.v, init.p, init.q, Timestamped(Vec3())), source1)
-  lazy val out = upd.map(x => (x.p, x.q))
+  lazy val out = upd.map(x => (x.p, x.q), "P & Q")
 
 }

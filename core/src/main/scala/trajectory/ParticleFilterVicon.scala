@@ -77,10 +77,11 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
     }
   }
 
+
   def kalmanUpdatePos(ps: Particles, pos: Position) = {
     ps.copy(sp = ps.sp.map(x => {
       val (ns, (z, sig)) = x.s.updatePos(pos)
-      val p              = Rand.gaussianLogPdf(pos, z, sig)
+      val p              = posLogLikelihood(pos, z, sig)
       x.copy(w = x.w + p, s = ns)
     }))
   }
