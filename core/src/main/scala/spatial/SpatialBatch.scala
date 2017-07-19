@@ -1,4 +1,4 @@
-package dawn.flow.spatial
+package dawn.flow.spatialf
 
 import spatial._
 import spatial.interpreter._
@@ -13,12 +13,12 @@ trait SpatialBatch[R] extends SpatialStream {
   def name = "Spatial Batch"
   type SpatialR <:  MetaAny[_]
 
-  implicit def typeR: Type[SpatialR]
-  implicit def bitsR: Bits[SpatialR] 
+  implicit def typeSR: Type[SpatialR]
+  implicit def bitsSR: Bits[SpatialR] 
 
-  def spatial(): SpatialR
+  def convertOutput(x: Seq[(java.lang.String, Exp[_])]): Timestamped[R]
 
-  def convertOutput(x: scala.Any): Timestamped[R]
+  @struct case class TSR(t: Double, v: SpatialR)    
 
   override def stagingArgs = scala.Array[java.lang.String]("--interpreter", "-q")
 
@@ -52,28 +52,57 @@ trait SpatialBatch[R] extends SpatialStream {
     r
       .asScala
       .toList
-      .asInstanceOf[List[scala.Any]]
+      .asInstanceOf[List[Seq[(java.lang.String, Exp[_])]]]
       .map(convertOutput)
 
   }
 
 }
 
-abstract class SpatialBatch1[A, R, SpatialA <: MetaAny[_] : Type : Bits, SR <: MetaAny[_]](val rawSource1: Source[A])(implicit val typeR: Type[SR], val bitsR: Bits[SR]) extends SpatialBatch[R] with Block1[A, R] {
+trait Spatialable[A] {
+  type Spatial <: MetaAny[_]
+  type Internal
+  implicit def bitsI: Bits[Spatial]
+  implicit def typeI: Type[Spatial]
+  def from(x: Internal): A
+  def to(x: A): Spatial
+}
 
-  type SpatialR = SR  
+abstract class SpatialBatch1[A, R, SA, SR <: MetaAny[_]](val rawSource1: Source[A])(implicit val sa: Spatialable[A] {type Spatial = SA}, val sr: Spatialable[R] { type Spatial = SR}) extends SpatialBatch[R] with Block1[A, R] {
+
+  type SpatialA = sa.Spatial
+  type SpatialR = sr.Spatial
+
+  implicit def bitsSA = sa.bitsI
+  implicit def typeSA = sa.typeI
+
+  implicit def bitsSR: Bits[SpatialR] = sr.bitsI
+  implicit def typeSR = sr.typeI
+
+  @struct case class TSA(t: Double, v: SA)      
+
   type BatchInput = A
   lazy val zipIns = source1
-  
-  var in1: StreamIn[SpatialA] = _
+
+  def spatial(tsa: TSA): SR
   
   def convertInputs(x: ListT[BatchInput]): List[List[MetaAny[_]]]  = {
-    List(x.map(convertA))
+    List(x.map(y => TSA(y.t, sa.to(y.v))))
   }
 
-  def convertA(x: Timestamped[A]): SpatialA      
+  def convertOutput(x: Seq[(java.lang.String, Exp[_])]) = {
+    var m: Map[java.lang.String, Exp[_]] = Map()
+    x.foreach(y => m += y)
+    Timestamped(
+      m("t").asInstanceOf[Const[_]].c.asInstanceOf[BigDecimal].toDouble,
+      sr.from(m("v").asInstanceOf[Const[_]].c.asInstanceOf[sr.Internal])
+    )
+  }
   
   lazy val out = new Batch[BatchInput, R] {
+
+    implicit def bitsSR: Bits[SpatialR] = sr.bitsI
+    implicit def typeSR = sr.typeI
 
     lazy val rawSource1 = zipIns
 
@@ -89,12 +118,12 @@ abstract class SpatialBatch1[A, R, SpatialA <: MetaAny[_] : Type : Bits, SR <: M
       setStreams(lA)
 
       def prog() = {
-        val hiddenIn1 = StreamIn[SpatialA](In1)
-        in1 = hiddenIn1
-        val out = StreamOut[SpatialR](Out1)
+        val in1 = StreamIn[TSA](In1)
+        val out = StreamOut[TSR](Out1)
         Accel {
           Stream(*) {x =>
-            out := spatial()
+            val tsa = in1.value
+            out := TSR(tsa.t, spatial(tsa))
           }
         }
       }
@@ -108,7 +137,7 @@ abstract class SpatialBatch1[A, R, SpatialA <: MetaAny[_] : Type : Bits, SR <: M
   
 }
 
-
+/*
 trait SpatialBatch2[A, B, R] extends SpatialBatch[R] with Block2[A, B, R] {
 
   type BatchInput = Either[A, B]
@@ -168,7 +197,7 @@ trait SpatialBatch2[A, B, R] extends SpatialBatch[R] with Block2[A, B, R] {
   
   
 }
-
+ */
 //object SpatialBatch {
 //  def apply[A, B, R](s1: Source[A], s2: Source[B]) = new Spatial {
 //    new Source1
