@@ -49,7 +49,7 @@ object SpatialExample extends FlowApp[Any, Any] {
       val v =  x.asInstanceOf[BigDecimal].toDouble
       Timestamped(0.1, v)
     }
-    def spatial() = {
+    @virtualize def spatial() = {
       in1.value + 1f
     }
     
