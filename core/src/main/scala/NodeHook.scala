@@ -91,8 +91,8 @@ trait NodeHook {
 
   def setup() = {
     expand()
-    val graph  = Graph(nodes.toSet, nodes.flatMap(x => getSources(x).map(y => (y, x))).distinct)
-    val sorted = GraphUtils.topologicalSort(graph).get
+    val graph  = Graph(nodes.toSet, nodes.flatMap(x => getSources(x).map(y => (x, y))).distinct)
+    val sorted = GraphUtils.topologicalSort(graph).get.reverse
     sorted.foreach(_.reset())
     sorted.foreach(_.setup())
     println("Done setup")

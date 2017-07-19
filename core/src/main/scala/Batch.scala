@@ -1,8 +1,8 @@
 package dawn.flow
 
-trait Batch[A, B]
+trait Batch[A, R]
     extends Source1[A]
-    with Source[B]
+    with Source[R]
     with Accumulate[A]
     with CloseListener {
 
@@ -18,25 +18,32 @@ trait Batch[A, B]
     schedulerL
   }
 
-  def f(lA: ListT[A]): ListT[B]
+  def f(lA: ListT[A]): ListT[R]
 
   def onScheduleClose() = {
-    val lB = f(accumulated(0))
-    lB.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
+    val lR = f(accumulated(0))
+    lR.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
     scheduler.run()
   }
 
-  //The default implementation on Source1 is on the wrong sh.
+  //The default implementation on Source1 is on the wrong ch.
   //Not worth it to change all code since it once the first
   //scheduler is closed there is no effect possible
   override def setup() = {
     super.setup()    
-    schedulerL = new Scheduler {}
     source1.scheduler.childSchedulers ::= scheduler
     source1.addChannel(Channel1(this, source1.scheduler))
+    source1.addChannel(ChannelN(1, this, source1.scheduler))    
+  }
+
+  override def reset() = {
+    super.reset()
+    schedulerL = new Scheduler {}
   }
 
 }
+
+
 
 object Batch {
   def apply[A, B](rawSource11: Source[A],
@@ -63,7 +70,8 @@ case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
 
   def schedulerClose = source1.scheduler
 
-  def listen1(x: Timestamped[A]) = ()  
+  def listen1(x: Timestamped[A]) = ()
+
   //clever trick to make topological sort order depend on the sourceOut schedule
   override def rawSources = sourceOut :: super.rawSources
 
@@ -76,6 +84,7 @@ case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
   //Same as above
   override def setup() = {
     source1.addChannel(Channel1(this, source1.scheduler))
+    source1.addChannel(ChannelN(1, this, source1.scheduler))    
     super.setup()
   }
 

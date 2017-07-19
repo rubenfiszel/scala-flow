@@ -23,7 +23,7 @@ trait ParticleFilter {
   }
 
 
-  case class Particle(w: Weight, q: Attitude, s: State, lastA: Acceleration)
+  case class Particle(w: Weight, q: Attitude, s: State, lastA: Acceleration, lastQ: Quat)
   case class Particles(sp: Seq[Particle], lastO: Omega)
   
   type Combined
@@ -34,10 +34,10 @@ trait ParticleFilter {
     ps.copy(sp = ps.sp.map(x => x.copy(q = sampleAtt(x.q, ps.lastO, dt))))
 
   def updateAcceleration(ps: Particles, acc: Acceleration) =
-    ps.copy(sp = ps.sp.map(x => x.copy(lastA = x.q.rotate(acc))))
+    ps.copy(sp = ps.sp.map(x => x.copy(lastA = x.q.rotate(acc), lastQ = x.q)))
 
   def kalmanPredict(ps: Particles, dt: Time) =
-    ps.copy(sp = ps.sp.map(x => x.copy(s = x.s.predict(x.q, x.lastA, dt))))
+    ps.copy(sp = ps.sp.map(x => x.copy(s = x.s.predict(x.lastQ, x.lastA, dt))))
   
   def sampleAtt(q: Quat, om: Omega, dt: Time): Quat = {
     val withNoise  = Rand.gaussian(om, eye(3)*covGyro)

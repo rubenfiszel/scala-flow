@@ -7,7 +7,7 @@ import spire.implicits._
 
 object FilterExample extends App {
 
-  implicit val mc = ModelHook[Trajectory]
+  implicit val mc = ModelHook[Nothing]
 
   val alpha = 0.5
 

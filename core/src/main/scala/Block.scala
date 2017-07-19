@@ -2,6 +2,8 @@ package dawn.flow
 
 sealed trait Block[A] extends Source[A] { parent =>
 
+  override def scheduler = out.scheduler
+  
   def out: Source[A]
 
   val trans = new Op1[A, A] {

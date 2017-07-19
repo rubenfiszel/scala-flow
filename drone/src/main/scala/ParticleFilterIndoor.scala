@@ -113,6 +113,7 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
 
   val trajs = TrajFactory.generate(5)
 
+  new Jzy3dVisualisation(trajs(0))
   trajs.foreach(traj => {
     run(traj, traj.trajInit)
   })

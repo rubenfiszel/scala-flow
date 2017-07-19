@@ -67,6 +67,9 @@ trait Source[A] extends Node { parent =>
   def filter(b: A => Boolean, name1: String = "", silent1: Boolean = false): Source[A] =
     filterT(liftBool(b), name1, silent1)
 
+  def foreach(f: A => Unit, name1: String = ""): Source[A] =
+    foreachT(liftUnit(f), name1)
+  
   def foreachT(f: Timestamped[A] => Unit, name1: String = ""): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
@@ -113,8 +116,6 @@ trait Source[A] extends Node { parent =>
   def debug(): Source[A] =
     foreachT(x => Console.println(s"[$this]: $x)"), "Debug")
 
-  def foreach(f: A => Unit, name1: String = ""): Source[A] =
-    foreachT(liftUnit(f), name1)
 
   //USE ONLY WHEN THERE IS NO LOOP INVOLVED
   def buffer(init: A) =
@@ -338,7 +339,7 @@ trait Source[A] extends Node { parent =>
       acc.merge(pos).map(flatten, "Fusion"))
   }
 
-  def latency(dt: Time) =
+  def latency(dt: Time): Source[A] =
     new Op1[A, A] {
       def rawSource1 = parent
       def listen1(x: Timestamped[A]) = {
@@ -347,10 +348,10 @@ trait Source[A] extends Node { parent =>
       def name = "LatencyT " + dt
     }
 
-  def toTime =
+  def toTime: Source[Time] =
     mapT(_.t)
 
-  def drop(n: Int) = {
+  def drop(n: Int): Source[A] = {
     new Op1[A, A] {
       def rawSource1 = parent
       var i = n

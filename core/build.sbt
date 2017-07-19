@@ -8,6 +8,7 @@ libraryDependencies ++= Seq(
     , "org.typelevel" %% "spire"  % "0.14.1"
     , "org.jzy3d" % "jzy3d-api"  % "1.0.0"
     , "com.github.mdr" %% "ascii-graphs" % "0.0.6"
+    , "stanford-ppl" %% "spatial" % "1.0"
     //  , "com.chuusai" %% "shapeless" % "2.3.2"
 )
 //resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/releases"

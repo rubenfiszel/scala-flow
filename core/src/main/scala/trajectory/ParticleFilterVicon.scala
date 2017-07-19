@@ -116,7 +116,7 @@ case class ParticleFilterVicon(rawSource1: Source[(Acceleration, Omega)],
     m
   }
   def initP =
-    Particle(log(1.0 / N), init.q, State(initX, initS), Vec3())
+    Particle(log(1.0 / N), init.q, State(initX, initS), Vec3(), init.q)
 
   lazy val fused =
     imu

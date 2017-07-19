@@ -26,11 +26,6 @@ class TimeSource(source: Source[Time]) {
     }
 
   def deltaTime(init: Time = 0.0): Source[Time] = {
-/* //Implementation with zip, drop 1
-    source
-      .zip(source.drop(1))
-      .map(x => x._2 - x._1)
- */
     lazy val buffer = Buffer[Time](source, init, source)
     source
       .zip(buffer)
