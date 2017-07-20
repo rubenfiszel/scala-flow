@@ -114,7 +114,7 @@ trait Source[A] extends Node { parent =>
     groupByT(lift(f))
   
   def debug(): Source[A] =
-    foreachT(x => Console.println(s"[$this]: $x)"), "Debug")
+    foreachT(x => Console.println(s"[${Console.BLUE}$this${Console.RESET}]: $x"), "Debug")
 
 
   //USE ONLY WHEN THERE IS NO LOOP INVOLVED

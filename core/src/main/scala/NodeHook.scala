@@ -3,12 +3,14 @@ package dawn.flow
 import com.github.mdr.ascii.graph._
 import com.github.mdr.ascii.layout.GraphLayout
 import com.github.mdr.ascii.layout.prefs._
+
 trait NodeHook {
 
   var nodes = List[Node]()
 
-  def addNode(s: Node) =
+  def addNode(s: Node) = {
     nodes ::= s
+  }
 
   def getSources(n: Node): List[Node] = n match {
 //    case x: Buffer[_] => List()
@@ -45,15 +47,23 @@ trait NodeHook {
       case _                                     => true
     }
 
-    val n = nodes.filterNot(innersF.contains(_)).filter(filterReplays)
-    val graph = Graph(n.toSet,
-                      n.flatMap(
+    //a function so that possibly created sources by
+    //lazy evaluation are accounted for in the vertices
+    nodes.foreach(_.sources)
+    
+    val n = nodes.filterNot(innersF.contains(_)).filter(filterReplays)        
+    val edges: List[(Node, Node)] = n.flatMap(
                         x =>
                           x.sources
                             .flatMap(skipReplays)
                             .filterNot(innersF.contains(_))
                             .filter(filterReplays)
-                            .map(y => (y, x))))
+                            .map(y => (y, x)))
+
+    val vertices = n.toSet    
+
+    val graph = Graph(vertices,
+                      edges)
     val layout = GraphLayout.renderGraph(graph)
     println(layout)
 

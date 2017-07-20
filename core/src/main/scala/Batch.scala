@@ -20,10 +20,15 @@ trait Batch[A, R]
 
   def f(lA: ListT[A]): ListT[R]
 
+  var numClosed = 0
+  def numClosedRequired: Int = 1
   def onScheduleClose() = {
-    val lR = f(accumulated(0))
-    lR.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
-    scheduler.run()
+    numClosed += 1
+    if (numClosed == numClosedRequired) {
+      val lR = f(accumulated(0))
+      lR.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
+      scheduler.run()
+    }
   }
 
   //The default implementation on Source1 is on the wrong ch.
@@ -31,14 +36,13 @@ trait Batch[A, R]
   //scheduler is closed there is no effect possible
   override def setup() = {
     super.setup()    
-    source1.scheduler.childSchedulers ::= scheduler
     source1.addChannel(Channel1(this, source1.scheduler))
     source1.addChannel(ChannelN(1, this, source1.scheduler))    
   }
 
   override def reset() = {
     super.reset()
-    schedulerL = new Scheduler {}
+    schedulerL = Scheduler.newOne()
   }
 
 }
@@ -55,12 +59,15 @@ object Batch {
   }
 }
 
-case class ReplayWithScheduler[A](rawSource1: Source[A]) extends Batch[A, A] {
+class ReplayWithScheduler[A](val rawSource1: Source[A]) extends Batch[A, A] {
   def name = "Replay w/ scheduler"
   def f(lA: ListT[A]) = lA
+
+  override lazy val sources = rawSources
+  override def numClosedRequired = 2
 }
 
-case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
+class Replay[A](val rawSource1: Source[A], sourceScheduler: Source[_])
     extends Source1[A]
     with Source[A]
     with Accumulate[A]
@@ -68,23 +75,28 @@ case class Replay[A](rawSource1: Source[A], sourceOut: Source[_])
 
   def name = "Replay"
 
-  def schedulerClose = source1.scheduler
+  def schedulerClose = rawSource1.scheduler
+
 
   def listen1(x: Timestamped[A]) = ()
 
   //clever trick to make topological sort order depend on the sourceOut schedule
-  override def rawSources = sourceOut :: super.rawSources
+  override def rawSources = sourceScheduler :: super.rawSources
+
+  override lazy val sources = rawSources
 
   override def closePriority = 1
-  override def scheduler = sourceOut.scheduler
+  override def scheduler = sourceScheduler.scheduler
 
-  def onScheduleClose() =
+  def onScheduleClose() = {
+    println(accumulated.toList)
     accumulated(0).foreach(x => scheduler.registerEvent(broadcast(x), x.time))
+  }
 
   //Same as above
   override def setup() = {
-    source1.addChannel(Channel1(this, source1.scheduler))
-    source1.addChannel(ChannelN(1, this, source1.scheduler))    
+    schedulerClose.addCloseListener(sourceScheduler.asInstanceOf[CloseListener])
+    rawSource1.addChannel(ChannelN(1, this, rawSource1.scheduler))    
     super.setup()
   }
 

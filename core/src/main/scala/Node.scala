@@ -16,7 +16,7 @@ trait Node { self =>
 
 object Node {
 
-  val model: Node = new Node {
+  private val model: Node = new Node {
     def scheduler = ???
     def nodeHook = new NodeHook {}
     def sources = List()

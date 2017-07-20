@@ -66,6 +66,7 @@ trait Spatialable[A] {
   def to(x: A): Spatial
 }
 
+
 abstract class SpatialBatch1[A, R, SA <: MetaAny[_], SR <: MetaAny[_]]
   (val rawSource1: Source[A])
   (implicit
@@ -78,11 +79,11 @@ abstract class SpatialBatch1[A, R, SA <: MetaAny[_], SR <: MetaAny[_]]
   type SpatialA = sa.Spatial
   type SpatialR = sr.Spatial
 
-  implicit def bitsSA = sa.bitsI
-  implicit def typeSA = sa.typeI
+  implicit private def bitsSA = sa.bitsI
+  implicit private def typeSA = sa.typeI
 
-  implicit def bitsSR: Bits[SpatialR] = sr.bitsI
-  implicit def typeSR                 = sr.typeI
+  implicit def bitsSR = sr.bitsI
+  implicit def typeSR = sr.typeI
 
   @struct case class TSA(t: Double, v: SA)
 
@@ -105,9 +106,6 @@ abstract class SpatialBatch1[A, R, SA <: MetaAny[_], SR <: MetaAny[_]]
   }
 
   lazy val out = new Batch[BatchInput, R] {
-
-    implicit def bitsSR: Bits[SpatialR] = sr.bitsI
-    implicit def typeSR                 = sr.typeI
 
     lazy val rawSource1 = zipIns
 
@@ -148,11 +146,11 @@ abstract class SpatialBatch2[A, B, R, SA <: MetaAny[_], SB <: MetaAny[_], SR <: 
   type SpatialB = sb.Spatial
   type SpatialR = sr.Spatial
 
-  implicit def bitsSA = sa.bitsI
-  implicit def typeSA = sa.typeI
+  implicit private def bitsSA = sa.bitsI
+  implicit private def typeSA = sa.typeI
 
-  implicit def bitsSB = sb.bitsI
-  implicit def typeSB = sb.typeI
+  implicit private def bitsSB = sb.bitsI
+  implicit private def typeSB = sb.typeI
 
   implicit def bitsSR: Bits[SpatialR] = sr.bitsI
   implicit def typeSR = sr.typeI
@@ -181,9 +179,6 @@ abstract class SpatialBatch2[A, B, R, SA <: MetaAny[_], SB <: MetaAny[_], SR <: 
   }
 
   lazy val out = new Batch[BatchInput, R] {
-
-    implicit def bitsSR: Bits[SpatialR] = sr.bitsI
-    implicit def typeSR = sr.typeI
 
     lazy val rawSource1 = zipIns
 

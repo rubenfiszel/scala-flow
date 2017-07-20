@@ -22,10 +22,9 @@ trait Scheduler {
 
   val closeListeners = PriorityQueue[CloseListener]()
 
-  var childSchedulers = List[Scheduler]()
-
-  def addCloseListener(cl: CloseListener) =
+  def addCloseListener(cl: CloseListener) = {
     closeListeners.enqueue(cl)
+  }
 
   implicit val ordE: Ordering[Event] = Ordering.by { e: Event =>
     -e.t

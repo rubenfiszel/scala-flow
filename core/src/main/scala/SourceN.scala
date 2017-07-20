@@ -6,14 +6,13 @@ trait SourceN extends Node {
   lazy val sources: List[Source[_]] =
     rawSources.drop(1).foldLeft(List[Source[_]](rawSources(0)))(
       (acc, pos) => {
-      val nl = acc ::: List(pos)
       if (acc(0).scheduler != pos.scheduler) {
-        val s1: Source[_] = ReplayWithScheduler(acc(0))
-        val tl: List[Source[_]] = (acc ::: List(pos)).drop(1).map(x => Replay(x, s1))
+        val s1: Source[_] = new ReplayWithScheduler(acc(0))
+        val tl: List[Source[_]] = (acc ::: List(pos)).drop(1).map(x => new Replay(x, s1))
         s1 :: tl
       }
       else 
-        nl
+        acc ::: List(pos)
       }
     )
 
