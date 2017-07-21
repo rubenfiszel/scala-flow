@@ -16,6 +16,13 @@ trait SpatialBatch[R] extends SpatialStream {
   implicit def typeSR: Type[SpatialR]
   implicit def bitsSR: Bits[SpatialR]
 
+
+  //to setup SRAM etc
+  protected var memsStorage: Map[java.lang.String, MetaAny[_]] =_
+  
+  def initMems(): Map[java.lang.String, MetaAny[_]] = Map()
+  def mems[T <: MetaAny[_]](x: java.lang.String) = memsStorage(x).asInstanceOf[T]
+
   def convertOutput(x: Seq[(java.lang.String, Exp[_])]): Timestamped[R]
 
   @struct case class TSR(t: Double, v: SpatialR)
@@ -122,6 +129,9 @@ abstract class SpatialBatch1[A, R, SA <: MetaAny[_], SR <: MetaAny[_]]
 
       def prog() = {
         Accel {
+
+          memsStorage = initMems()
+
           val in1 = StreamIn[TSA](In1)
           val out = StreamOut[TSR](Out1)
           
@@ -191,16 +201,20 @@ abstract class SpatialBatch2[A, B, R, SA <: MetaAny[_], SB <: MetaAny[_], SR <: 
 
     def f(lA: ListT[BatchInput]): ListT[R] = {
 
+      implicitly[argon.core.State].reset()      
       setStreams(lA)
 
       @virtualize def prog() = {
         Accel {
+
+          memsStorage = initMems()
+
           val in1 = StreamIn[TSA](In1)
           val in2 = StreamIn[TSB](In2)
-          val fifo1 = FIFO[TSA](1000)
-          val fifo2 = FIFO[TSB](1000)
+          val fifo1 = FIFO[TSA](100000)
+          val fifo2 = FIFO[TSB](100000)
           val out = StreamOut[TSR](Out1)
-          
+
           Stream(*) {x =>
             fifo1.enq(in1)
           }

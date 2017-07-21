@@ -1,5 +1,6 @@
 package dawn.flow.trajectory
 
+import dawn.flow.spatial._
 import dawn.flow._
 import breeze.linalg.norm
 import spire.math.Quaternion
@@ -20,8 +21,8 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
 
   val numberParticles = 1200
 
-  val clockIMU   = new TrajectoryClock(dtIMU)
-  val clockVicon = new TrajectoryClock(dtVicon)
+  val clockIMU   = new TrajectoryClock(dtIMU).stop(0.3)
+  val clockVicon = new TrajectoryClock(dtVicon).stop(0.3)
 
   val imu   = clockIMU.map(IMU(eye(3) * covAcc, eye(3) * covGyro, dtIMU))
   val vicon = clockVicon.map(Vicon(eye(3) * covViconP, eye(3) * covViconQ))
@@ -65,10 +66,16 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
         covViconQ
       )
 
+  lazy val sfilter =
+    PFSpatial(
+      imu,
+      vicon)
+
   def filter = ekfilter
 
 
-  val filters = List(acfilter, ekfilter, ukfilter, pfilter)
+  val filters = List(acfilter, ekfilter, ukfilter, pfilter, sfilter)
+
   val testLogs = filters.map(x => new TestLogger(x.toString.take(10)))
 
   def figure() = {
@@ -104,22 +111,21 @@ object ParticleFilterIndoor extends FlowApp[Trajectory, TrajInit] {
     TestTS(labeled, s.toString.take(10), Some(tl) )
   }
 
-//  figure()
-//  figureError()
   filters.zip(testLogs).foreach { case (x,y) => testTS(x, y) }
-//  filter.println
+
+  figure()
 
   drawExpandedGraph()
 
-  val trajs = TrajFactory.generate(5)
+  val trajs = TrajFactory.generate(1)
 
-  new Jzy3dVisualisation(trajs(0))
+//  new Jzy3dVisualisation(trajs(0))
   trajs.foreach(traj => {
     run(traj, traj.trajInit)
   })
 
   testLogs.foreach(_.printAll)
-  testLogs.foreach(_.printMean)  
+  testLogs.foreach(_.printMean)
 
   System.exit(0)
 

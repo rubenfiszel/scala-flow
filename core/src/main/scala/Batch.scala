@@ -21,7 +21,7 @@ trait Batch[A, R]
   def f(lA: ListT[A]): ListT[R]
 
   var numClosed = 0
-  def numClosedRequired: Int = 1
+  var numClosedRequired: Int = 1
   def onScheduleClose() = {
     numClosed += 1
     if (numClosed == numClosedRequired) {
@@ -35,13 +35,14 @@ trait Batch[A, R]
   //Not worth it to change all code since it once the first
   //scheduler is closed there is no effect possible
   override def setup() = {
-    super.setup()    
+    super.setup()
     source1.addChannel(Channel1(this, source1.scheduler))
     source1.addChannel(ChannelN(1, this, source1.scheduler))    
   }
 
   override def reset() = {
     super.reset()
+    numClosed = 0
     schedulerL = Scheduler.newOne()
   }
 
@@ -64,10 +65,10 @@ class ReplayWithScheduler[A](val rawSource1: Source[A]) extends Batch[A, A] {
   def f(lA: ListT[A]) = lA
 
   override lazy val sources = rawSources
-  override def numClosedRequired = 2
+//  override def numClosedRequired = 2
 }
 
-class Replay[A](val rawSource1: Source[A], sourceScheduler: Source[_])
+class Replay[A](val rawSource1: Source[A], sourceScheduler: ReplayWithScheduler[_])
     extends Source1[A]
     with Source[A]
     with Accumulate[A]
@@ -89,13 +90,13 @@ class Replay[A](val rawSource1: Source[A], sourceScheduler: Source[_])
   override def scheduler = sourceScheduler.scheduler
 
   def onScheduleClose() = {
-    println(accumulated.toList)
     accumulated(0).foreach(x => scheduler.registerEvent(broadcast(x), x.time))
   }
 
   //Same as above
   override def setup() = {
-    schedulerClose.addCloseListener(sourceScheduler.asInstanceOf[CloseListener])
+    schedulerClose.addCloseListener(sourceScheduler)
+    sourceScheduler.numClosedRequired += 1
     rawSource1.addChannel(ChannelN(1, this, rawSource1.scheduler))    
     super.setup()
   }

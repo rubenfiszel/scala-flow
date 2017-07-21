@@ -12,7 +12,7 @@ object SpatialDebug extends FlowApp[Any, Any] {
 
   val spatial = new SpatialBatch1[Time, Time, Double, Double](clock) {
 
-    val N: scala.Int = 1
+    val N: scala.Int = 20
 
     val initV: (scala.Double, scala.Double, scala.Double)               = (0.0, 0.0, 0.0)
     val initP: (scala.Double, scala.Double, scala.Double)               = (0.0, 0.0, 0.0)
@@ -509,14 +509,9 @@ object SpatialDebug extends FlowApp[Any, Any] {
     }
     
     @virtualize def normWeights(particles: SRAM1[Particle], parFactor: Int) = {
-      val initW: Real = 0.2
-      val maxR = Reg[Real](initW + 0.4)
-      Reduce(maxR)(N by 1 par parFactor)(i => particles(i).w)((x,y) => {println(x); println("r" + y);x+y})//max(x,y))
-//      particles(0) = 
-      println(maxR)
-      /*
       val totalWeight = Reg[Real](0)
-      val maxR = Reg[Real](particles(0).w)
+      val maxR = Reg[Real]
+      maxR := particles(0).w
       Reduce(maxR)(N by 1 par parFactor)(i => particles(i).w)((x,y) => max(x,y))
       println(maxR)
       Reduce(totalWeight)(N by 1 par parFactor)(i => exp(particles(i).w - maxR))(_+_)
@@ -526,7 +521,6 @@ object SpatialDebug extends FlowApp[Any, Any] {
         val p = particles(i)
         particles(i) = Particle(p.w - totalWeight, p.q, p.st, p.lastA, p.lastQ)
       })
-       */
     }
 
 
