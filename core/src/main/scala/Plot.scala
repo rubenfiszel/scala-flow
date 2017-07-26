@@ -17,7 +17,6 @@ case class Plot[A: Data](rawSource1: Source[A], rawSourcesIn: Source[A]*)
 
   def consumeAll(ar: Array[ListT[A]]) = {
 
-    println(ar.map(_.length).toList)
     val data = implicitly[Data[A]]
 
     val xs = ar.map(_.map(_.time))

@@ -12,7 +12,7 @@ trait Sensor[A, M] extends (Time => A) with RequireModel[M] {
     generate(model.get, t)
 }
 
-trait VectorSensor[M] extends Sensor[Vec3, M] {
+trait VectorSensor[M] extends Sensor[DenseVector[Real], M] {
 
   def cov: DenseMatrix[Real]
 

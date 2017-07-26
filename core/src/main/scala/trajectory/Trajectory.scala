@@ -32,7 +32,6 @@ trait Trajectory extends Model {
   def getAcceleration(t: Time): Acceleration
 
   def isFeasible: Boolean
-
   //Acceleration + G
 //  def getFullAcceleration(t: Time): Acceleration =
 //    getAcceleration(t) + gravity

@@ -6,7 +6,7 @@ trait FlowApp[M, I] extends App {
   implicit val initHook = new InitHook[I]
 
   def drawExpandedGraph() =
-    PrimaryNodeHook.drawGraph(replays = true)
+    PrimaryNodeHook.drawGraph()
 
   def run(m: M, i: I) = {
     modelHook.setModel(m)

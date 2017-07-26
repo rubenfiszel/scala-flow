@@ -36,7 +36,7 @@ object TrajFactory {
       tfs ::= 1.0
 
       //Keypoint 3
-      keypoints ::= Keypoint(Some(Vec3(-1, -1, 1.0)), Some(Rand.gaussian(Vec3.zero, covV)), None)
+      keypoints ::= Keypoint(Some(Rand.gaussian(Vec3(-1, -1, 1.0), covP)), Some(Rand.gaussian(Vec3.zero, covV)), None)
       tfs ::= 2.0
     }
 

@@ -25,7 +25,7 @@ trait Batch[A, R]
   def onScheduleClose() = {
     numClosed += 1
     if (numClosed == numClosedRequired) {
-      val lR = f(accumulated(0))
+      val lR = f(accumulated(0).reverse)
       lR.foreach(x => scheduler.registerEvent(broadcast(x), x.time))
       scheduler.run()
     }

@@ -1,5 +1,6 @@
 package dawn.flow
 
+import dawn.flow._
 import io.circe.generic.semiauto._
 import io.circe._
 import spire.math.{Real => _, _ => _}
@@ -7,6 +8,19 @@ import spire.implicits._
 import breeze.linalg.{DenseVector, DenseMatrix, norm}
 
 package object trajectory {
+
+  type NormalVector   = Vec3
+  type Jerk           = Vec3
+  type Velocity       = Vec3
+  type Position       = Vec3
+  type Position2D     = Vec2
+  type Acceleration   = Vec3
+  type Acceleration2D = Vec2
+  type Thrust         = Real
+  type Omega          = Vec3
+  type Attitude       = Quat
+  type AltitudeRay    = Real
+  type ControlInput   = (Thrust, Omega)
 
   implicit class DenseVectorOps(v: VectorR) {
     def toQuaternion = Quaternion(v(0), v(1), v(2), v(3))
@@ -21,7 +35,7 @@ package object trajectory {
     //https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
     def rotate(v: Vec3) = {
       val qga = Quaternion(0.0, v.x, v.y, v.z)
-      val rq = q * qga * q.reciprocal
+      val rq  = q * qga * q.reciprocal
       Vec3(rq.i, rq.j, rq.k)
     }
 
@@ -33,36 +47,34 @@ package object trajectory {
 
     //https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
     def getPitch =
-      asin(2*(q.r*q.j - q.k*q.i))
+      asin(2 * (q.r * q.j - q.k * q.i))
 
-    //https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf PAGE 
+    //https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/20070017872.pdf PAGE
     def attitudeMatrix = {
       val axisC = DenseVector(q.i, q.j, q.k)
 
-      val m = DenseMatrix(
-        (0.0, -q.k, q.j),
-        (q.k, 0.0, -q.i),
-        (-q.j, q.i, 0.0))
+      val m = DenseMatrix((0.0, -q.k, q.j), (q.k, 0.0, -q.i), (-q.j, q.i, 0.0))
 
-      DenseMatrix.eye[Real](3)*(q.r**2 - norm(axisC)**2) + axisC*axisC.t*2.0 - m*2.0*q.r
+      DenseMatrix.eye[Real](3) * (q.r ** 2 - norm(axisC) ** 2) + axisC * axisC.t * 2.0 - m * 2.0 * q.r
 
     }
 
     //https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation#Quaternion-derived_rotation_matrix
-    def rotationMatrix = 
+    def rotationMatrix =
       DenseMatrix(
-        (1.0-2.0*(q.j**2 + q.k**2), 2.0*(q.i*q.j-q.k*q.r), 2.0*(q.i*q.k + q.j*q.r)),
-        (2.0*(q.i*q.j+q.k*q.r), 1.0-2.0*(q.i**2 + q.k**2), 2.0*(q.j*q.k-q.i*q.r)),
-        (2.0*(q.i*q.k-q.j*q.r), 2.0*(q.j*q.k + q.i*q.r), 1.0-2.0*(q.i**2 + q.j**2)))
+        (1.0 - 2.0 * (q.j ** 2 + q.k ** 2), 2.0 * (q.i * q.j - q.k * q.r), 2.0 * (q.i * q.k + q.j * q.r)),
+        (2.0 * (q.i * q.j + q.k * q.r), 1.0 - 2.0 * (q.i ** 2 + q.k ** 2), 2.0 * (q.j * q.k - q.i * q.r)),
+        (2.0 * (q.i * q.k - q.j * q.r), 2.0 * (q.j * q.k + q.i * q.r), 1.0 - 2.0 * (q.i ** 2 + q.j ** 2))
+      )
 
     //https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5108752/
-      def riemannMatrix = 
-        DenseMatrix(
-          (q.r, -q.k, q.j),
-          (q.k, q.r, -q.i),
-          (-q.j, q.i, q.r),
-          (-q.i, -q.j, -q.k)
-        )
+    def riemannMatrix =
+      DenseMatrix(
+        (q.r, -q.k, q.j),
+        (q.k, q.r, -q.i),
+        (-q.j, q.i, q.r),
+        (-q.i, -q.j, -q.k)
+      )
   }
 
 }

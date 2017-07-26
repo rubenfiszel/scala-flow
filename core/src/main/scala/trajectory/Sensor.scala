@@ -13,6 +13,16 @@ case class Accelerometer(cov: MatrixR)(implicit val modelHook: ModelHook[Traject
 
 }
 
+case class Accelerometer2D(cov: MatrixR)(implicit val modelHook: ModelHook[Trajectory])
+    extends VectorSensor[Trajectory] {
+
+  def genVector(traj: Trajectory, t: Time) = {
+    val a = traj.getAcceleration(t)
+    DenseVector(a.x, a.y)
+  }
+
+}
+
 case class Gyroscope(cov: MatrixR, dt: Timestep)(implicit val modelHook: ModelHook[Trajectory])
     extends VectorSensor[Trajectory] {
 

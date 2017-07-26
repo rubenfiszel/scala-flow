@@ -54,7 +54,7 @@ class Jzy3dVisualisation(traj: Trajectory) {
 //            print(t + " " + p)
             //        println(p)
             point.setPosition(new Coord3d(p.x, p.y, p.z))
-            point.setVolume(pt.v.t.toFloat / 1000)
+            point.setVolume(pt.v.t.toFloat / 400)
 
             //    chart.getScene.clear()
           }
